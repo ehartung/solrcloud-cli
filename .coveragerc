@@ -1,0 +1,8 @@
+[run]
+omit =
+    */dist-packages/*
+    *mock*
+    *pbr*
+    *etree*
+    *six.py
+
