@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/zalando/solrcloud-cli.svg)](https://travis-ci.org/zalando/solrcloud-cli)
+
 # SolrCloud-CLI
 
 Deployment tool for [STUPS](https://stups.io/) SolrCloud appliance.
