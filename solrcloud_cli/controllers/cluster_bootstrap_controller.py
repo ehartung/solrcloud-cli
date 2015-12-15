@@ -7,8 +7,8 @@ import time
 import urllib.error
 import urllib.request
 
-from controllers.ClusterController import ClusterController
-from services.SenzaWrapper import SenzaWrapper
+from solrcloud_cli.controllers.cluster_controller import ClusterController
+from solrcloud_cli.services.senza_wrapper import SenzaWrapper
 
 CONFIG_DIR = os.path.join(os.getcwd(), 'configs')
 INITIAL_STACK_VERSION = 'blue'

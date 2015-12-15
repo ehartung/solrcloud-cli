@@ -5,7 +5,7 @@ import subprocess
 
 from mock import MagicMock
 from unittest import TestCase
-from services.SenzaWrapper import SenzaWrapper
+from solrcloud_cli.services.senza_wrapper import SenzaWrapper
 
 NO_TRAFFIC = 0.0
 ALL_TRAFFIC = 100.0
@@ -17,7 +17,7 @@ class TestSenzaWrapper(TestCase):
 
     __senza_wrapper = None
 
-    def setUp(self):
+    def setup_method(self, method):
         self.__senza_wrapper = SenzaWrapper(TEST_CONFIG)
         self.__senza_wrapper.set_retry_wait(0)
         self.__senza_wrapper.set_stack_creation_retry_timeout(1)

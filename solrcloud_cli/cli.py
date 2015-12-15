@@ -4,10 +4,10 @@
 import yaml
 import os.path
 
-from controllers.ClusterBootstrapController import ClusterBootstrapController
-from controllers.ClusterDeleteController import ClusterDeleteController
-from controllers.ClusterDeploymentController import ClusterDeploymentController
-from services.SenzaWrapper import SenzaWrapper
+from solrcloud_cli.controllers.cluster_bootstrap_controller import ClusterBootstrapController
+from solrcloud_cli.controllers.cluster_delete_controller import ClusterDeleteController
+from solrcloud_cli.controllers.cluster_deployment_controller import ClusterDeploymentController
+from solrcloud_cli.services.senza_wrapper import SenzaWrapper
 
 from argparse import ArgumentParser
 

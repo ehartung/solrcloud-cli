@@ -7,8 +7,8 @@ import time
 import urllib.error
 import urllib.request
 
-from controllers.ClusterController import ClusterController
-from services.SenzaWrapper import SenzaWrapper
+from solrcloud_cli.controllers.cluster_controller import ClusterController
+from solrcloud_cli.services.senza_wrapper import SenzaWrapper
 
 DEFAULT_LEADER_CHECK_RETRY_COUNT = 30
 DEFAULT_LEADER_CHECK_RETRY_WAIT = 1

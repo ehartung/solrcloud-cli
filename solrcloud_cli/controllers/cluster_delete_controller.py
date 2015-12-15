@@ -5,8 +5,8 @@ import logging
 import urllib.error
 import urllib.request
 
-from controllers.ClusterController import ClusterController
-from services.SenzaWrapper import SenzaWrapper
+from solrcloud_cli.controllers.cluster_controller import ClusterController
+from solrcloud_cli.services.senza_wrapper import SenzaWrapper
 
 COLLECTIONS_API_PATH = '/admin/collections'
 

@@ -3,8 +3,8 @@
 
 from mock import MagicMock, call
 from unittest import TestCase
-from controllers.ClusterDeleteController import ClusterDeleteController
-from services.SenzaWrapper import SenzaWrapper
+from solrcloud_cli.controllers.cluster_delete_controller import ClusterDeleteController
+from solrcloud_cli.services.senza_wrapper import SenzaWrapper
 
 import json
 import urllib.error

@@ -3,8 +3,8 @@
 
 from mock import MagicMock
 from unittest import TestCase
-from controllers.ClusterDeploymentController import ClusterDeploymentController
-from services.SenzaWrapper import SenzaWrapper
+from solrcloud_cli.controllers.cluster_deployment_controller import ClusterDeploymentController
+from solrcloud_cli.services.senza_wrapper import SenzaWrapper
 
 import json
 import re
