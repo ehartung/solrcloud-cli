@@ -1,6 +1,7 @@
 [run]
 omit =
     */dist-packages/*
+    */site-packages/*
     *mock*
     *pbr*
     *etree*
