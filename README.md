@@ -6,27 +6,32 @@
 Deployment tool for [STUPS](https://stups.io/) SolrCloud appliance.
 
 ## Table of contents
-1. Bootstrapping Solr cloud
-2. Blue/green deployment of new Solr cloud version
-3. Delete complete cluster
+1. Install SolrCloud-CLI
+2. Bootstrapping Solr cloud
+3. Blue/green deployment of new Solr cloud version
+4. Delete complete cluster
 
-## 1 Bootstrap Solr cloud
+## 1 Install SolrCloud-CLI
+
+        $ python setup.py install
+        
+## 2 Bootstrap Solr cloud
 
         $ mai login
         $ TOKEN=$(zign token uid)
-        $ ./solrcloud-cli -s 3 -r 3 -t $TOKEN -b https://example.org/solr -i 1.0.x <application id> bootstrap
+        $ solrcloud -s 3 -r 3 -t $TOKEN -b https://example.org/solr -i 1.0.x -f example.yaml <application id> bootstrap
 
 
-## 2 Blue/green deployment of new Solr cloud version
+## 3 Blue/green deployment of new Solr cloud version
 
-### 2.1 Solr cloud deployment in one step
+### 3.1 Solr cloud deployment in one step
 
         $ pierone login
         $ mai login
         $ TOKEN=$(zign token uid)
-        $ ./solrcloud-cli -t $TOKEN -b https://example.org/solr -i 1.0.x <application id> deploy
+        $ solrcloud -t $TOKEN -b https://example.org/solr -i 1.0.x -f example.yaml <application id> deploy
 
-### 2.2 Solr cloud deployment in single step
+### 3.2 Solr cloud deployment in single step
 1. Authorization for deployment
 
         $ mai login
@@ -34,27 +39,27 @@ Deployment tool for [STUPS](https://stups.io/) SolrCloud appliance.
 
 2. Create new stack version
         
-        $ ./solrcloud-cli -t $TOKEN -b https://example.org/solr -i 1.0.x <application id> create-new-cluster
+        $ solrcloud -t $TOKEN -b https://example.org/solr -i 1.0.x -f example.yaml <application id> create-new-cluster
 
 3. Add new nodes to cluster
         
-        $ ./solrcloud-cli -t $TOKEN -b https://example.org/solr -i 1.0.x <application id> add-new-nodes
+        $ solrcloud -t $TOKEN -b https://example.org/solr -i 1.0.x -f example.yaml <application id> add-new-nodes
 
 4. Switch traffic to new nodes
         
-        $ ./solrcloud-cli -t $TOKEN -b https://example.org/solr -i 1.0.x <application id> switch
+        $ solrcloud -t $TOKEN -b https://example.org/solr -i 1.0.x -f example.yaml <application id> switch
 
 5. Delete old nodes in cluster
         
-        $ ./solrcloud-cli -t $TOKEN -b https://example.org/solr -i 1.0.x <application id> delete-old-nodes
+        $ solrcloud -t $TOKEN -b https://example.org/solr -i 1.0.x -f example.yaml <application id> delete-old-nodes
 
 6. Terminate old stack version
         
-        $ ./solrcloud-cli -t $TOKEN -b https://example.org/solr -i 1.0.x <application id> delete-old-cluster
+        $ solrcloud -t $TOKEN -b https://example.org/solr -i 1.0.x -f example.yaml <application id> delete-old-cluster
 
-## 3 Delete complete cluster
+## 4 Delete complete cluster
 
         $ mai login
         $ pierone login
         $ TOKEN=$(zign token uid)
-        $ ./solrcloud-cli -t $TOKEN -b https://example.org/solr <application id> delete
+        $ solrcloud -t $TOKEN -b https://example.org/solr -f example.yaml <application id> delete
