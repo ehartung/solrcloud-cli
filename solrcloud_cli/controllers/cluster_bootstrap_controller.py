@@ -37,6 +37,7 @@ class ClusterBootstrapController(ClusterController):
     def bootstrap_cluster(self):
         self.create_cluster()
         self.switch_on_traffic()
+        self.wait_for_cluster_to_be_ready()
         self.add_all_collections_to_cluster()
 
     def set_retry_count(self, retry_count: int):
@@ -51,6 +52,26 @@ class ClusterBootstrapController(ClusterController):
     def switch_on_traffic(self):
         self._senza.switch_traffic(self._stack_name, INITIAL_STACK_VERSION, 100)
 
+    def wait_for_cluster_to_be_ready(self):
+        retry = True
+        retry_count = 0
+        expected_number_of_nodes = int(self.__sharding_level) * int(self.__replication_factor)
+        while retry and retry_count <= self.__retry_count:
+            try:
+                cluster_state = self.get_cluster_state()
+                nodes_count = len(cluster_state['cluster']['live_nodes'])
+                if nodes_count >= expected_number_of_nodes:
+                    retry = False
+            except Exception as e:
+                logging.warning('Clould not get cluster state: {}'.format(e))
+            finally:
+                if retry:
+                    logging.warning('Cluster is not ready, yet, retrying ...')
+                    time.sleep(self.__retry_wait)
+                    retry_count += 1
+        if retry:
+            logging.warning('Cluster did not become ready in time.')
+
     def add_all_collections_to_cluster(self):
         result = 0
         for config in os.listdir(CONFIG_DIR):
@@ -64,7 +85,6 @@ class ClusterBootstrapController(ClusterController):
         url += '&replicationFactor=' + str(self.__replication_factor)
         url += '&maxShardsPerNode=1'
         url += '&collection.configName=' + collection_name.replace('_', '')
-
         retry = True
         retry_count = 0
         while retry and retry_count <= self.__retry_count:

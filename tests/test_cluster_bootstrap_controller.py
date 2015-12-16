@@ -57,8 +57,13 @@ CLUSTER_NORMAL = {
                     }
                 }
             }
-        }
-    },
+        },
+        "live_nodes": [
+            '0.0.0.0:8983_solr',
+            '0.0.0.1:8983_solr',
+            '0.0.0.2:8983_solr'
+        ]
+    }
 }
 
 
@@ -177,6 +182,7 @@ class TestClusterBootstrapController(TestCase):
         senza_mock = SenzaWrapper(CONFIG)
         senza_create_mock = senza_mock.create_stack = MagicMock()
         senza_switch_mock = senza_mock.switch_traffic = MagicMock(return_value=True)
+        os.listdir = MagicMock(side_effect=self.__side_effect_config_list)
         controller = ClusterBootstrapController(base_url=BASE_URL, stack_name=STACK_NAME,
                                                 sharding_level=SHARDING_LEVEL,
                                                 replication_factor=REPLICATION_FACTOR,
