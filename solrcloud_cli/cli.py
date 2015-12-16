@@ -53,7 +53,7 @@ def main():
         settings = yaml.load(fd)
 
     senza_wrapper = SenzaWrapper(args.senza_configuration)
-    for key, value in settings:
+    for key, value in settings.items():
         senza_wrapper.add_parameter(key, value)
 
     if args.command in ['bootstrap']:

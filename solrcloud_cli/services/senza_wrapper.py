@@ -84,8 +84,14 @@ class SenzaWrapper:
         return self.__execute_senza('traffic', stack_name)
 
     def create_stack(self, stack_name: str, stack_version: str, image_version: str):
+        senza_parameters = list()
+        senza_parameters.append('ApplicationId=' + stack_name)
+        senza_parameters.append('ImageVersion=' + image_version)
+        for key, value in self.__parameters.items():
+            senza_parameters.append(key + '=' + str(value))
+
         result = self.__execute_senza('create', '--disable-rollback', self.__config_file_name, stack_version,
-                                      'ApplicationId=' + stack_name, 'ImageVersion=' + image_version)
+                                      *senza_parameters)
         if result != 0:
             raise Exception('Failed to create new cluster with error code [{}]'.format(result))
         timer = 0
@@ -128,8 +134,6 @@ class SenzaWrapper:
 
     def __execute_senza(self, command: str, *args):
         senza_command = [SENZA, command, '--region', REGION]
-        for key, value in self.__parameters:
-            senza_command += [key, value]
 
         if command in ['create', 'delete']:
             senza_command += list(args)
