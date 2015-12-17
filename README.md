@@ -30,7 +30,7 @@ Deployment tool for [STUPS](https://stups.io/) SolrCloud appliance.
         $ pierone login
         $ solrcloud -b https://example.org/solr -i 1.0.x -f example.yaml <application id> deploy
 
-### 3.2 Solr cloud deployment in single step
+### 3.2 Solr cloud deployment in single steps
 1. Authorization for deployment
 
         $ mai login
