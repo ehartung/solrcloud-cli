@@ -12,7 +12,7 @@ from solrcloud_cli.services.senza_wrapper import SenzaWrapper
 
 CONFIG_DIR = os.path.join(os.getcwd(), 'configs')
 INITIAL_STACK_VERSION = 'blue'
-DEFAULT_RETRY_COUNT = 10
+DEFAULT_RETRY_COUNT = 30
 DEFAULT_RETRY_WAIT = 10
 COLLECTIONS_API_PATH = '/admin/collections'
 
