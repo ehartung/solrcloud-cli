@@ -13,7 +13,7 @@ Deployment tool for [STUPS](https://stups.io/) SolrCloud appliance.
 
 ## 1 Install SolrCloud-CLI
 
-        $ python setup.py install
+        $ sudo python3 setup.py install
         
 ## 2 Bootstrap Solr cloud
 
