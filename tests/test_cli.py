@@ -39,11 +39,3 @@ class TestCLI(TestCase):
 
         self.assertIn('Configuration file does not exist: unknown.file', output)
         self.assertIn('usage: ', output)
-
-    @patch('sys.stdout', new_callable=io.StringIO)
-    def test_should_run_bootstrapping_of_cluster(self, out):
-        solrcloud_cli(['test-name', 'bootstrap'])
-        output = out.getvalue()
-
-        self.assertIn('Configuration file does not exist: unknown.file', output)
-        self.assertIn('usage: ', output)
