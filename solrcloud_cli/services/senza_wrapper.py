@@ -85,7 +85,6 @@ class SenzaWrapper:
 
     def create_stack(self, stack_name: str, stack_version: str, image_version: str):
         senza_parameters = list()
-        senza_parameters.append('ApplicationId=' + stack_name)
         senza_parameters.append('ImageVersion=' + image_version)
         for key, value in self.__parameters.items():
             senza_parameters.append(key + '=' + str(value))

@@ -351,7 +351,7 @@ class TestSenzaWrapper(TestCase):
 
         create_mock.assert_called_once_with([
             'senza', 'create', '--region', 'eu-west-1', '--disable-rollback', TEST_CONFIG, stack_version,
-            'ApplicationId=' + stack_name, 'ImageVersion=' + image_version
+            'ImageVersion=' + image_version
         ])
         events_mock.assert_called_once_with([
             'senza', 'events', '--region', 'eu-west-1', '--output', 'json', stack_name, stack_version
@@ -392,7 +392,7 @@ class TestSenzaWrapper(TestCase):
 
         create_mock.assert_called_once_with([
             'senza', 'create', '--region', 'eu-west-1', '--disable-rollback', TEST_CONFIG, stack_version,
-            'ApplicationId=' + stack_name, 'ImageVersion=' + image_version
+            'ImageVersion=' + image_version
         ])
         events_mock.assert_called_with([
             'senza', 'events', '--region', 'eu-west-1', '--output', 'json', stack_name, stack_version
@@ -415,7 +415,7 @@ class TestSenzaWrapper(TestCase):
 
         create_mock.assert_called_once_with([
             'senza', 'create', '--region', 'eu-west-1', '--disable-rollback', TEST_CONFIG, stack_version,
-            'ApplicationId=' + stack_name, 'ImageVersion=' + image_version
+            'ImageVersion=' + image_version
         ])
 
     def test_should_raise_exception_if_creation_of_new_stack_version_failed(self):
@@ -445,7 +445,7 @@ class TestSenzaWrapper(TestCase):
 
         create_mock.assert_called_once_with([
             'senza', 'create', '--region', 'eu-west-1', '--disable-rollback', TEST_CONFIG, stack_version,
-            'ApplicationId=' + stack_name, 'ImageVersion=' + image_version
+            'ImageVersion=' + image_version
         ])
         events_mock.assert_called_once_with([
             'senza', 'events', '--region', 'eu-west-1', '--output', 'json', stack_name, stack_version
@@ -471,7 +471,7 @@ class TestSenzaWrapper(TestCase):
 
         create_mock.assert_called_once_with([
             'senza', 'create', '--region', 'eu-west-1', '--disable-rollback', TEST_CONFIG, stack_version,
-            'ApplicationId=' + stack_name, 'ImageVersion=' + image_version
+            'ImageVersion=' + image_version
         ])
 
         events_mock.assert_not_called()
