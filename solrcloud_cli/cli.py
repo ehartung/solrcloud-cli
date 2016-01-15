@@ -17,12 +17,9 @@ DEFAULT_CONF_FILE = 'example.yaml'
 
 def build_args_parser():
     parser = ArgumentParser(description='SolrCloud CLI')
-    parser.add_argument('name', help='Stack name of the Solr cloud cluster')
     parser.add_argument('command', help='Available commands: bootstrap, deploy, delete, create-new-cluster, '
                                         'delete-old-cluster, add-new-nodes, delete-old-nodes, switch')
     parser.add_argument('-i', '--image-version', help='Docker image version of Solr cloud instances')
-    parser.add_argument('-b', '--base-url', default='http://localhost:8983/solr/',
-                        help='Base URL of Solr administration API.')
     parser.add_argument('-s', '--sharding-level', default=1, help='Number of shards per collection')
     parser.add_argument('-r', '--replication-level', default=3, help='Number of replications per shard')
     parser.add_argument('-c', '--senza-configuration', default='solrcloud-appliance.yaml',
@@ -53,8 +50,8 @@ def solrcloud_cli(cli_args):
         senza_wrapper.add_parameter(key, value)
 
     if args.command in ['bootstrap']:
-        controller = ClusterBootstrapController(base_url=args.base_url,
-                                                stack_name=args.name,
+        controller = ClusterBootstrapController(base_url=settings['SolrBaseUrl'],
+                                                stack_name=settings['ApplicationId'],
                                                 sharding_level=args.sharding_level,
                                                 replication_factor=args.replication_level,
                                                 image_version=args.image_version,
@@ -62,14 +59,14 @@ def solrcloud_cli(cli_args):
                                                 senza_wrapper=senza_wrapper)
     elif args.command in ['deploy', 'create-new-cluster', 'delete-old-cluster', 'add-new-nodes', 'delete-old-nodes',
                           'switch']:
-        controller = ClusterDeploymentController(base_url=args.base_url,
-                                                 stack_name=args.name,
+        controller = ClusterDeploymentController(base_url=settings['SolrBaseUrl'],
+                                                 stack_name=settings['ApplicationId'],
                                                  image_version=args.image_version,
                                                  oauth_token=args.token,
                                                  senza_wrapper=senza_wrapper)
     elif args.command in ['delete']:
-        controller = ClusterDeleteController(base_url=args.base_url,
-                                             stack_name=args.name,
+        controller = ClusterDeleteController(base_url=settings['SolrBaseUrl'],
+                                             stack_name=settings['ApplicationId'],
                                              oauth_token=args.token,
                                              senza_wrapper=senza_wrapper)
     else:

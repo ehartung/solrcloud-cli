@@ -19,7 +19,7 @@ Deployment tool for [STUPS](https://stups.io/) SolrCloud appliance.
 
         $ mai login
         $ pierone login
-        $ solrcloud -s 3 -r 3 -b https://example.org/solr -i 1.0.x -f example.yaml <application id> bootstrap
+        $ solrcloud -s 3 -r 3 -i 1.0.x -f example.yaml bootstrap
 
 
 ## 3 Blue/green deployment of new Solr cloud version
@@ -28,7 +28,7 @@ Deployment tool for [STUPS](https://stups.io/) SolrCloud appliance.
 
         $ mai login
         $ pierone login
-        $ solrcloud -b https://example.org/solr -i 1.0.x -f example.yaml <application id> deploy
+        $ solrcloud -i 1.0.x -f example.yaml deploy
 
 ### 3.2 Solr cloud deployment in single steps
 1. Authorization for deployment
@@ -38,26 +38,26 @@ Deployment tool for [STUPS](https://stups.io/) SolrCloud appliance.
 
 2. Create new stack version
         
-        $ solrcloud -b https://example.org/solr -i 1.0.x -f example.yaml <application id> create-new-cluster
+        $ solrcloud -i 1.0.x -f example.yaml create-new-cluster
 
 3. Add new nodes to cluster
         
-        $ solrcloud -b https://example.org/solr -i 1.0.x -f example.yaml <application id> add-new-nodes
+        $ solrcloud -i 1.0.x -f example.yaml add-new-nodes
 
 4. Switch traffic to new nodes
         
-        $ solrcloud -b https://example.org/solr -i 1.0.x -f example.yaml <application id> switch
+        $ solrcloud -i 1.0.x -f example.yaml switch
 
 5. Delete old nodes in cluster
         
-        $ solrcloud -b https://example.org/solr -i 1.0.x -f example.yaml <application id> delete-old-nodes
+        $ solrcloud -i 1.0.x -f example.yaml delete-old-nodes
 
 6. Terminate old stack version
         
-        $ solrcloud -b https://example.org/solr -i 1.0.x -f example.yaml <application id> delete-old-cluster
+        $ solrcloud -i 1.0.x -f example.yaml delete-old-cluster
 
 ## 4 Delete complete cluster
 
         $ mai login
         $ pierone login
-        $ solrcloud -b https://example.org/solr -f example.yaml <application id> delete
+        $ solrcloud -f example.yaml delete

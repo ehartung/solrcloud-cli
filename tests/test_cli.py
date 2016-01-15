@@ -26,7 +26,7 @@ class TestCLI(TestCase):
 
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_should_return_error_message_and_usage_page_if_command_is_unknown(self, out):
-        solrcloud_cli(['test-name', 'unknown'])
+        solrcloud_cli(['unknown'])
         output = out.getvalue()
 
         self.assertIn('Unknown command: unknown', output)
@@ -34,7 +34,7 @@ class TestCLI(TestCase):
 
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_should_return_error_message_and_usage_page_if_config_file_does_not_exist(self, out):
-        solrcloud_cli(['-f', 'unknown.file', 'test-name', 'unknown'])
+        solrcloud_cli(['-f', 'unknown.file', 'unknown'])
         output = out.getvalue()
 
         self.assertIn('Configuration file does not exist: unknown.file', output)
