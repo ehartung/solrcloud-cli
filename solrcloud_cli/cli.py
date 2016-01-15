@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import yaml
 import os.path
+import sys
+import yaml
 
 from solrcloud_cli.controllers.cluster_bootstrap_controller import ClusterBootstrapController
 from solrcloud_cli.controllers.cluster_delete_controller import ClusterDeleteController
@@ -14,7 +15,7 @@ from argparse import ArgumentParser
 DEFAULT_CONF_FILE = 'example.yaml'
 
 
-def main():
+def build_args_parser():
     parser = ArgumentParser(description='SolrCloud CLI')
     parser.add_argument('name', help='Stack name of the Solr cloud cluster')
     parser.add_argument('command', help='Available commands: bootstrap, deploy, delete, create-new-cluster, '
@@ -29,24 +30,19 @@ def main():
     parser.add_argument('-t', '--token', help='OAuth token for connecting to the Solr cloud API')
     parser.add_argument('-f', '--config-file', help='Path to config file. (default: %s)' % DEFAULT_CONF_FILE,
                         dest='config')
+    return parser
 
-    args = parser.parse_args()
+
+def solrcloud_cli(cli_args):
+    parser = build_args_parser()
+    args = parser.parse_args(cli_args)
 
     if not args.config:
         args.config = os.path.expanduser(DEFAULT_CONF_FILE)
-        if not os.path.exists(args.config):
-            print('Configuration file missing:', DEFAULT_CONF_FILE)
-            parser.print_help()
-            return
 
-    if not args.command:
-        print('No command given')
-        parser.print_help()
-        return
-
-    if not args.name:
-        print('No stack name given')
-        parser.print_help()
+    if not os.path.exists(args.config):
+        print('Configuration file does not exist:', args.config)
+        parser.print_usage()
         return
 
     with open(args.config, 'rb') as fd:
@@ -77,8 +73,8 @@ def main():
                                              oauth_token=args.token,
                                              senza_wrapper=senza_wrapper)
     else:
-        print('Unknown command')
-        parser.print_help()
+        print('Unknown command:', args.command)
+        parser.print_usage()
         return
 
     if args.command == 'bootstrap':
@@ -98,9 +94,13 @@ def main():
     elif args.command == 'switch':
         controller.switch_traffic()
     else:
-        print('Unknown command')
-        parser.print_help()
+        print('Unknown command:', args.command)
+        parser.print_usage()
         return
+
+
+def main():
+    solrcloud_cli(sys.argv[1:])
 
 if __name__ == '__main__':
     main()
