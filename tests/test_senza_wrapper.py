@@ -475,3 +475,39 @@ class TestSenzaWrapper(TestCase):
         ])
 
         events_mock.assert_not_called()
+
+    def test_should_create_stack_with_additional_senza_parameter(self):
+        stack_name = 'test-stack'
+        stack_version = 'test-version'
+        image_version = '0.0.0'
+        timeout = 1
+
+        senza_wrapper = SenzaWrapper(TEST_CONFIG)
+        senza_wrapper.set_stack_creation_retry_timeout(timeout)
+
+        senza_wrapper.add_parameter("test-key", "test-value")
+
+        create_mock = MagicMock(return_value=0)
+        subprocess.call = create_mock
+
+        events = [
+            {
+                'stack_name': stack_name,
+                'version': stack_version,
+                'resource_type': 'CloudFormation::Stack',
+                'event_time': '0',
+                'ResourceStatus': 'CREATE_COMPLETE'
+            }
+        ]
+        events_mock = MagicMock(return_value=bytes(json.dumps(events), encoding='utf-8'))
+        subprocess.check_output = events_mock
+
+        senza_wrapper.create_stack(stack_name, stack_version, image_version)
+
+        create_mock.assert_called_once_with([
+            'senza', 'create', '--region', 'eu-west-1', '--disable-rollback', TEST_CONFIG, stack_version,
+            'ImageVersion=' + image_version, 'test-key=test-value'
+        ])
+        events_mock.assert_called_once_with([
+            'senza', 'events', '--region', 'eu-west-1', '--output', 'json', stack_name, stack_version
+        ])

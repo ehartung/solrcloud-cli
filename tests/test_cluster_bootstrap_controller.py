@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
 from mock import MagicMock
 from unittest import TestCase
 from solrcloud_cli.controllers.cluster_bootstrap_controller import ClusterBootstrapController
 from solrcloud_cli.services.senza_wrapper import SenzaWrapper
+from testfixtures import log_capture
 
 import json
 import os
@@ -177,6 +177,77 @@ class TestClusterBootstrapController(TestCase):
         controller.switch_on_traffic()
 
         senza_switch_mock.assert_called_once_with(STACK_NAME, INITIAL_BOOTSTRAP_VERSION, 100)
+
+    @log_capture()
+    def test_should_not_write_warning_when_waiting_for_cluster_to_be_ready_and_all_nodes_are_available(self, log):
+        senza_mock = SenzaWrapper(CONFIG)
+        controller = ClusterBootstrapController(base_url=BASE_URL, stack_name=STACK_NAME,
+                                                sharding_level=SHARDING_LEVEL,
+                                                replication_factor=REPLICATION_FACTOR,
+                                                image_version=IMAGE_VERSION, oauth_token=OAUTH_TOKEN,
+                                                senza_wrapper=senza_mock)
+        controller.set_retry_count(1)
+        controller.set_retry_wait(0)
+
+        urlopen_mock = MagicMock(side_effect=self.__side_effect_return_cluster_state)
+        urllib.request.urlopen = urlopen_mock
+
+        controller.wait_for_cluster_to_be_ready()
+
+        log.check()
+
+    @log_capture()
+    def test_should_write_warning_when_waiting_for_cluster_to_be_ready_and_not_enough_nodes_are_available(self, log):
+        senza_mock = SenzaWrapper(CONFIG)
+        sharding_level = SHARDING_LEVEL + 1
+        controller = ClusterBootstrapController(base_url=BASE_URL, stack_name=STACK_NAME,
+                                                sharding_level=sharding_level,
+                                                replication_factor=REPLICATION_FACTOR,
+                                                image_version=IMAGE_VERSION, oauth_token=OAUTH_TOKEN,
+                                                senza_wrapper=senza_mock)
+        controller.set_retry_count(1)
+        controller.set_retry_wait(0)
+
+        urlopen_mock = MagicMock(side_effect=self.__side_effect_return_cluster_state)
+        urllib.request.urlopen = urlopen_mock
+
+        controller.wait_for_cluster_to_be_ready()
+
+        log.check(
+            ('root', 'WARNING', 'Cluster is not ready, yet, retrying ...'),
+            ('root', 'WARNING', 'Cluster is not ready, yet, retrying ...'),
+            ('root', 'WARNING', 'Cluster did not become ready in time.')
+        )
+
+    @log_capture()
+    def test_should_write_warning_when_waiting_for_cluster_to_be_ready_and_timeout_on_cluster_state(self, log):
+        senza_mock = SenzaWrapper(CONFIG)
+        controller = ClusterBootstrapController(base_url=BASE_URL, stack_name=STACK_NAME,
+                                                sharding_level=SHARDING_LEVEL,
+                                                replication_factor=REPLICATION_FACTOR,
+                                                image_version=IMAGE_VERSION, oauth_token=OAUTH_TOKEN,
+                                                senza_wrapper=senza_mock)
+        controller.set_retry_count(1)
+        controller.set_retry_wait(0)
+
+        urlopen_mock = MagicMock(side_effect=self.__side_effect_timeout)
+        urllib.request.urlopen = urlopen_mock
+
+        controller.wait_for_cluster_to_be_ready()
+
+        log.check(
+            ('root', 'WARNING',
+             'Clould not get cluster state: Failed sending request to Solr '
+             '[' + BASE_URL + '/admin/collections?action=CLUSTERSTATUS&wt=json]: '
+             'HTTP Error 504: None'),
+            ('root', 'WARNING', 'Cluster is not ready, yet, retrying ...'),
+            ('root', 'WARNING',
+             'Clould not get cluster state: Failed sending request to Solr '
+             '[' + BASE_URL + '/admin/collections?action=CLUSTERSTATUS&wt=json]: '
+             'HTTP Error 504: None'),
+            ('root', 'WARNING', 'Cluster is not ready, yet, retrying ...'),
+            ('root', 'WARNING', 'Cluster did not become ready in time.')
+        )
 
     def test_should_not_raise_exceptions_when_executing_all_bootstrap_steps(self):
         senza_mock = SenzaWrapper(CONFIG)

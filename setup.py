@@ -132,7 +132,7 @@ def setup_package():
         install_requires=get_install_requirements('requirements.txt'),
         setup_requires=['flake8'],
         cmdclass=cmdclass,
-        tests_require=['pytest-cov', 'pytest', 'mock'],
+        tests_require=['pytest-cov', 'pytest', 'mock', 'testfixtures'],
         command_options=command_options,
         entry_points={'console_scripts': CONSOLE_SCRIPTS},
     )

@@ -30,6 +30,31 @@ def build_args_parser():
     return parser
 
 
+def execute_command(controller, command):
+    if not controller:
+        return False
+
+    if command == 'bootstrap':
+        controller.bootstrap_cluster()
+    elif command == 'deploy':
+        controller.deploy_new_version()
+    elif command == 'delete':
+        controller.delete_cluster()
+    elif command == 'create-new-cluster':
+        controller.create_cluster()
+    elif command == 'delete-old-cluster':
+        controller.delete_cluster()
+    elif command == 'add-new-nodes':
+        controller.add_new_nodes_to_cluster()
+    elif command == 'delete-old-nodes':
+        controller.delete_old_nodes_from_cluster()
+    elif command == 'switch':
+        controller.switch_traffic()
+    else:
+        return False
+
+    return True
+
 def solrcloud_cli(cli_args):
     parser = build_args_parser()
     args = parser.parse_args(cli_args)
@@ -70,27 +95,9 @@ def solrcloud_cli(cli_args):
                                              oauth_token=args.token,
                                              senza_wrapper=senza_wrapper)
     else:
-        print('Unknown command:', args.command)
-        parser.print_usage()
-        return
+        controller = None
 
-    if args.command == 'bootstrap':
-        controller.bootstrap_cluster()
-    elif args.command == 'deploy':
-        controller.deploy_new_version()
-    elif args.command == 'delete':
-        controller.delete_cluster()
-    elif args.command == 'create-new-cluster':
-        controller.create_cluster()
-    elif args.command == 'delete-old-cluster':
-        controller.delete_cluster()
-    elif args.command == 'add-new-nodes':
-        controller.add_new_nodes_to_cluster()
-    elif args.command == 'delete-old-nodes':
-        controller.delete_old_nodes_from_cluster()
-    elif args.command == 'switch':
-        controller.switch_traffic()
-    else:
+    if not execute_command(controller, args.command):
         print('Unknown command:', args.command)
         parser.print_usage()
         return
