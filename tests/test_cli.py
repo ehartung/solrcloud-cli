@@ -1,6 +1,6 @@
 import io
 
-from mock import patch, MagicMock, Mock
+from mock import patch, Mock
 from unittest import TestCase
 
 from solrcloud_cli.controllers.cluster_delete_controller import ClusterDeleteController
@@ -9,7 +9,7 @@ from solrcloud_cli.controllers.cluster_deployment_controller import ClusterDeplo
 
 from solrcloud_cli.controllers.cluster_bootstrap_controller import ClusterBootstrapController
 
-from solrcloud_cli.cli import solrcloud_cli, execute_command
+from solrcloud_cli.cli import solrcloud_cli
 
 
 class TestCLI(TestCase):
@@ -46,50 +46,58 @@ class TestCLI(TestCase):
         self.assertIn('Configuration file does not exist: unknown.file', output)
         self.assertIn('usage: ', output)
 
-    def test_should_execute_bootstrap_command(self):
-        mock_controller = MagicMock(spec=ClusterBootstrapController)
-        mock_method = mock_controller.bootstrap_cluster = MagicMock()
-        execute_command(mock_controller, 'bootstrap')
+    @patch('solrcloud_cli.controllers.cluster_bootstrap_controller.ClusterBootstrapController.__init__',
+           Mock(return_value=None))
+    @patch.object(ClusterBootstrapController, 'bootstrap_cluster')
+    def test_should_execute_bootstrap_command(self, mock_method):
+        solrcloud_cli(['bootstrap'])
         mock_method.assert_called_once_with()
 
-    def test_should_execute_deploy_command(self):
-        mock_controller = MagicMock(spec=ClusterDeploymentController)
-        mock_method = mock_controller.deploy_new_version = MagicMock()
-        execute_command(mock_controller, 'deploy')
+    @patch('solrcloud_cli.controllers.cluster_deployment_controller.ClusterDeploymentController.__init__',
+           Mock(return_value=None))
+    @patch.object(ClusterDeploymentController, 'deploy_new_version')
+    def test_should_execute_deploy_command(self, mock_method):
+        solrcloud_cli(['deploy'])
         mock_method.assert_called_once_with()
 
-    def test_should_execute_create_new_cluster_command(self):
-        mock_controller = MagicMock(spec=ClusterDeploymentController)
-        mock_method = mock_controller.create_cluster = MagicMock()
-        execute_command(mock_controller, 'create-new-cluster')
+    @patch('solrcloud_cli.controllers.cluster_deployment_controller.ClusterDeploymentController.__init__',
+           Mock(return_value=None))
+    @patch.object(ClusterDeploymentController, 'create_cluster')
+    def test_should_execute_create_new_cluster_command(self, mock_method):
+        solrcloud_cli(['create-new-cluster'])
         mock_method.assert_called_once_with()
 
-    def test_should_execute_delete_old_cluster_command(self):
-        mock_controller = MagicMock(spec=ClusterDeploymentController)
-        mock_method = mock_controller.delete_cluster = MagicMock()
-        execute_command(mock_controller, 'delete-old-cluster')
+    @patch('solrcloud_cli.controllers.cluster_deployment_controller.ClusterDeploymentController.__init__',
+           Mock(return_value=None))
+    @patch.object(ClusterDeploymentController, 'delete_cluster')
+    def test_should_execute_delete_old_cluster_command(self, mock_method):
+        solrcloud_cli(['delete-old-cluster'])
         mock_method.assert_called_once_with()
 
-    def test_should_execute_add_new_nodes_command(self):
-        mock_controller = MagicMock(spec=ClusterDeploymentController)
-        mock_method = mock_controller.add_new_nodes_to_cluster = MagicMock()
-        execute_command(mock_controller, 'add-new-nodes')
+    @patch('solrcloud_cli.controllers.cluster_deployment_controller.ClusterDeploymentController.__init__',
+           Mock(return_value=None))
+    @patch.object(ClusterDeploymentController, 'add_new_nodes_to_cluster')
+    def test_should_execute_add_new_nodes_command(self, mock_method):
+        solrcloud_cli(['add-new-nodes'])
         mock_method.assert_called_once_with()
 
-    def test_should_execute_delete_old_nodes_command(self):
-        mock_controller = MagicMock(spec=ClusterDeploymentController)
-        mock_method = mock_controller.delete_old_nodes_from_cluster = MagicMock()
-        execute_command(mock_controller, 'delete-old-nodes')
+    @patch('solrcloud_cli.controllers.cluster_deployment_controller.ClusterDeploymentController.__init__',
+           Mock(return_value=None))
+    @patch.object(ClusterDeploymentController, 'delete_old_nodes_from_cluster')
+    def test_should_execute_delete_old_nodes_command(self, mock_method):
+        solrcloud_cli(['delete-old-nodes'])
         mock_method.assert_called_once_with()
 
-    def test_should_execute_switch_command(self):
-        mock_controller = MagicMock(spec=ClusterDeploymentController)
-        mock_method = mock_controller.switch_traffic = MagicMock()
-        execute_command(mock_controller, 'switch')
+    @patch('solrcloud_cli.controllers.cluster_deployment_controller.ClusterDeploymentController.__init__',
+           Mock(return_value=None))
+    @patch.object(ClusterDeploymentController, 'switch_traffic')
+    def test_should_execute_switch_command(self, mock_method):
+        solrcloud_cli(['switch'])
         mock_method.assert_called_once_with()
 
-    def test_should_execute_delete_command(self):
-        mock_controller = MagicMock(spec=ClusterDeleteController)
-        mock_method = mock_controller.delete_cluster = MagicMock()
-        execute_command(mock_controller, 'delete')
+    @patch('solrcloud_cli.controllers.cluster_delete_controller.ClusterDeleteController.__init__',
+           Mock(return_value=None))
+    @patch.object(ClusterDeleteController, 'delete_cluster')
+    def test_should_execute_delete_command(self, mock_method):
+        solrcloud_cli(['delete'])
         mock_method.assert_called_once_with()
