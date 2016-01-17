@@ -55,6 +55,7 @@ def execute_command(controller, command):
 
     return True
 
+
 def solrcloud_cli(cli_args):
     parser = build_args_parser()
     args = parser.parse_args(cli_args)
