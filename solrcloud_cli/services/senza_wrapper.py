@@ -121,11 +121,15 @@ class SenzaWrapper:
         if traffic_output and isinstance(traffic_output, list):
             for traffic_element in traffic_output:
                 if (traffic_element['stack_name'] == stack_name and traffic_element['version'] == stack_version and
-                        (traffic_element['new_weight%'] != weight or
-                            traffic_element['new_weight%'] == traffic_element['old_weight%'])):
+                        traffic_element['new_weight%'] != weight):
 
                     raise Exception('Switching of [{}]% traffic to stack [{}] version [{}] failed'
                                     .format(weight, stack_name, stack_version))
+                elif (traffic_element['stack_name'] == stack_name and traffic_element['version'] == stack_version and
+                        traffic_element['new_weight%'] == traffic_element['old_weight%']):
+
+                    raise Exception('Traffic weight did not change, traffic for stack [{}] version [{}] is still at '
+                                    '[{}]%'.format(stack_name, stack_version, weight))
         elif traffic_output is None:
             return
         else:

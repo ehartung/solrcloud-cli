@@ -32,7 +32,14 @@ class ClusterDeleteController(ClusterController):
         self._senza.delete_stack_version(self._stack_name, stack_version)
 
     def switch_off_traffic(self, stack_version: str):
-        self._senza.switch_traffic(self._stack_name, stack_version, 0)
+        try:
+            self._senza.switch_traffic(self._stack_name, stack_version, 0)
+        except Exception as e:
+            if str(e).startswith("Traffic weight did not change"):
+                logging.info('Traffic was not switched, it was already off for stack version [{}]'
+                             .format(stack_version))
+            else:
+                raise e
 
     def delete_all_collections_in_cluster(self):
         cluster_state = self.get_cluster_state()
