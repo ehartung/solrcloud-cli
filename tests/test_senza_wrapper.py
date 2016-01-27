@@ -254,6 +254,37 @@ class TestSenzaWrapper(TestCase):
             str(int(ALL_TRAFFIC))
         ])
 
+    def test_should_raise_exception_if_weight_was_already_new_weight_before_switching_traffic_between_versions(self):
+        stack_name = 'test'
+        active_version = 'active'
+        passive_version = 'passive'
+        switch_result = [
+            {
+                'identifier': stack_name + '-' + passive_version,
+                'stack_name': stack_name,
+                'version': passive_version,
+                'old_weight%': ALL_TRAFFIC,
+                'new_weight%': ALL_TRAFFIC
+            },
+            {
+                'identifier': stack_name + '-' + active_version,
+                'stack_name': stack_name,
+                'version': active_version,
+                'old_weight%': NO_TRAFFIC,
+                'new_weight%': NO_TRAFFIC
+            }
+        ]
+        switch_mock = MagicMock(return_value=bytes(json.dumps(switch_result), encoding='utf-8'))
+        subprocess.check_output = switch_mock
+
+        with self.assertRaisesRegex(Exception, 'Traffic weight did not change, traffic for stack \[{}\] version \[{}\] '
+                                               'is still at \[{}\]%'.format(stack_name, passive_version, '100')):
+            self.__senza_wrapper.switch_traffic(stack_name, passive_version, int(ALL_TRAFFIC))
+        switch_mock.assert_called_once_with([
+            'senza', 'traffic', '--region', 'eu-west-1', '--output', 'json', stack_name, passive_version,
+            str(int(ALL_TRAFFIC))
+        ])
+
     def test_should_raise_exception_if_new_weight_is_unexpected_after_switching_traffic_between_versions(self):
         stack_name = 'test'
         active_version = 'active'

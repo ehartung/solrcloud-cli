@@ -143,6 +143,29 @@ class TestClusterDeleteController(TestCase):
         controller.switch_off_traffic('test-version')
         senza_switch_mock.assert_called_once_with(STACK_NAME, 'test-version', 0)
 
+    def test_should_not_raise_exception_when_weight_was_already_zero_before_switching_off_a_cluster_version(self):
+        senza_mock = SenzaWrapper(CONFIG)
+        senza_switch_mock = senza_mock.switch_traffic = MagicMock(side_effect=Exception('Traffic weight did not change'
+                                                                                        ', traffic for stack \[{}\] '
+                                                                                        'version \[{}\] is still at '
+                                                                                        '\[{}\]%'.format('test', 'test',
+                                                                                                         '0')))
+
+        controller = ClusterDeleteController(base_url=BASE_URL, stack_name=STACK_NAME, oauth_token=OAUTH_TOKEN,
+                                             senza_wrapper=senza_mock)
+        controller.switch_off_traffic('test-version')
+        senza_switch_mock.assert_called_once_with(STACK_NAME, 'test-version', 0)
+
+    def test_should_raise_exception_when_switching_off_a_cluster_version_failed(self):
+        senza_mock = SenzaWrapper(CONFIG)
+        senza_switch_mock = senza_mock.switch_traffic = MagicMock(side_effect=Exception('Some exception'))
+        controller = ClusterDeleteController(base_url=BASE_URL, stack_name=STACK_NAME, oauth_token=OAUTH_TOKEN,
+                                             senza_wrapper=senza_mock)
+        with self.assertRaisesRegex(Exception, 'Some exception'):
+            controller.switch_off_traffic('test-version')
+
+        senza_switch_mock.assert_called_once_with(STACK_NAME, 'test-version', 0)
+
     def test_should_not_raise_exceptions_when_deleting_a_complete_cluster(self):
         versions = [{'version': 'test-version1'}, {'version': 'test-version2'}]
         senza_mock = SenzaWrapper(CONFIG)
