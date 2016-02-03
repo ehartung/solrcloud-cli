@@ -174,30 +174,14 @@ class ClusterDeploymentController(ClusterController):
                         # Check whether shard has an active leader and at least two active nodes before going on
                         logging.info('Checking for active nodes and leader in shard [{}] of collection [{}]'.format(
                             shard_name, collection_name))
-                        shard_has_active_leader = False
-                        active_nodes_in_shard = 0
-                        retries = 0
-                        while ((not shard_has_active_leader or active_nodes_in_shard < 2) and
-                                retries <= self.__leader_check_retry_count):
-                            current_cluster_state = self.get_cluster_state()
-                            shard_has_active_leader = self.has_active_leader(current_cluster_state, collection_name,
-                                                                             shard_name)
-                            active_nodes_in_shard = self.get_number_of_active_nodes(current_cluster_state,
-                                                                                    collection_name, shard_name)
-                            time.sleep(self.__leader_check_retry_wait)
-                            retries += 1
 
-                        if not shard_has_active_leader:
-                            raise Exception('Shard [{}] of collection [{}] has no active leader'.format(
-                                shard_name, collection_name))
-
-                        if active_nodes_in_shard < 2:
-                            raise Exception('Shard [{}] of collection [{}] has not enough active nodes: [{}]'.format(
-                                shard_name, collection_name, active_nodes_in_shard))
+                        self.verify_shard_health(collection_name, shard_name)
 
                         logging.info('INFO Deleting replica [{}] for collection [{}] and shard [{}]'.format(
                             replica_name, collection_name, shard_name))
                         self.delete_replica_from_cluster(collection_name, shard_name, replica_name)
+
+                self.verify_shard_health(collection_name, shard_name)
 
     def add_replica_to_cluster(self, collection_name: str, shard_name: str, node_name: str):
         url = self._api_url + '?action=ADDREPLICA'
@@ -265,6 +249,29 @@ class ClusterDeploymentController(ClusterController):
 
     def switch_traffic(self):
         self._senza.switch_traffic(self._stack_name, self.get_passive_stack_version(), 100)
+
+    def verify_shard_health(self, collection_name: str, shard_name: str):
+        # Verify that shard has an active leader and at least two active nodes
+        shard_has_active_leader = False
+        active_nodes_in_shard = 0
+        retries = 0
+        while ((not shard_has_active_leader or active_nodes_in_shard < 2) and
+                retries <= self.__leader_check_retry_count):
+            current_cluster_state = self.get_cluster_state()
+            shard_has_active_leader = self.has_active_leader(current_cluster_state, collection_name,
+                                                             shard_name)
+            active_nodes_in_shard = self.get_number_of_active_nodes(current_cluster_state,
+                                                                    collection_name, shard_name)
+            time.sleep(self.__leader_check_retry_wait)
+            retries += 1
+
+        if not shard_has_active_leader:
+            raise Exception('Shard [{}] of collection [{}] has no active leader'.format(
+                shard_name, collection_name))
+
+        if active_nodes_in_shard < 2:
+            raise Exception('Shard [{}] of collection [{}] has not enough active nodes: [{}]'.format(
+                shard_name, collection_name, active_nodes_in_shard))
 
     @staticmethod
     def has_active_leader(cluster: dict, collection: str, shard: str):

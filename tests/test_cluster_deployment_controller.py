@@ -32,13 +32,16 @@ NEW_NODES = ['1.1.1.0', '1.1.1.1', '1.1.1.2']
 OLD_NODES = ['0.0.0.0', '0.0.0.1', '0.0.0.2']
 NOT_ENOUGH_NODES = ['2.2.2.0', '2.2.2.1']
 
+COLLECTION = 'test-collection01'
+SHARD = 'shard1'
+
 CLUSTER_OLD_NODES = {
     "cluster": {
         "collections": {
-            "test-collection01": {
+            COLLECTION: {
                 "replicationFactor": str(REPLICATION_FACTOR),
                 "shards": {
-                    "shard1": {
+                    SHARD: {
                         "state": "active",
                         "replicas": {
                             "test-node01_shard1_replica1": {
@@ -70,10 +73,10 @@ CLUSTER_OLD_NODES = {
 CLUSTER_NEW_NODES = {
     "cluster": {
         "collections": {
-            "test-collection01": {
+            COLLECTION: {
                 "replicationFactor": str(REPLICATION_FACTOR),
                 "shards": {
-                    "shard1": {
+                    SHARD: {
                         "state": "active",
                         "replicas": {
                             "test-node01_shard1_replica1": {
@@ -105,10 +108,10 @@ CLUSTER_NEW_NODES = {
 CLUSTER_ALL_REGISTERED = {
     "cluster": {
         "collections": {
-            "test-collection01": {
+            COLLECTION: {
                 "replicationFactor": str(REPLICATION_FACTOR),
                 "shards": {
-                    "shard1": {
+                    SHARD: {
                         "state": "active",
                         "replicas": {
                             "test-node01_shard1_replica1": {
@@ -143,10 +146,10 @@ CLUSTER_ALL_REGISTERED = {
 CLUSTER_ALL_NODES = {
     "cluster": {
         "collections": {
-            "test-collection01": {
+            COLLECTION: {
                 "replicationFactor": str(REPLICATION_FACTOR),
                 "shards": {
-                    "shard1": {
+                    SHARD: {
                         "state": "active",
                         "replicas": {
                             "test-node01_shard1_replica1": {
@@ -193,10 +196,10 @@ CLUSTER_ALL_NODES = {
 CLUSTER_ALL_NODES_ONE_NOT_ACTIVE = {
     "cluster": {
         "collections": {
-            "test-collection01": {
+            COLLECTION: {
                 "replicationFactor": str(REPLICATION_FACTOR),
                 "shards": {
-                    "shard1": {
+                    SHARD: {
                         "state": "active",
                         "replicas": {
                             "test-node01_shard1_replica1": {
@@ -243,10 +246,10 @@ CLUSTER_ALL_NODES_ONE_NOT_ACTIVE = {
 CLUSTER_NO_LEADER = {
     "cluster": {
         "collections": {
-            "test-collection01": {
+            COLLECTION: {
                 "replicationFactor": str(REPLICATION_FACTOR),
                 "shards": {
-                    "shard1": {
+                    SHARD: {
                         "state": "active",
                         "replicas": {
                             "test-node01_shard1_replica1": {
@@ -272,10 +275,10 @@ CLUSTER_NO_LEADER = {
 CLUSTER_ONLY_ONE_ACTIVE_REPLICA = {
     "cluster": {
         "collections": {
-            "test-collection01": {
+            COLLECTION: {
                 "replicationFactor": str(REPLICATION_FACTOR),
                 "shards": {
-                    "shard1": {
+                    SHARD: {
                         "state": "active",
                         "replicas": {
                             "test-node01_shard1_replica1": {
@@ -302,10 +305,10 @@ CLUSTER_ONLY_ONE_ACTIVE_REPLICA = {
 CLUSTER_INACTIVE_SHARD_NO_REPLICAS = {
     "cluster": {
         "collections": {
-            "test-collection01": {
+            COLLECTION: {
                 "replicationFactor": str(REPLICATION_FACTOR),
                 "shards": {
-                    "shard1": {
+                    SHARD: {
                         "state": "down",
                         "replicas": {}
                     }
@@ -730,6 +733,7 @@ class TestClusterDeploymentController(TestCase):
             self.__side_effect_all_ok(''),  # delete_old_nodes_from_cluster
             self.__side_effect_return_cluster_state_all_nodes(None),  # delete_old_nodes_from_cluster
             self.__side_effect_all_ok(''),  # delete_old_nodes_from_cluster
+            self.__side_effect_return_cluster_state_all_nodes(None),  # delete_old_nodes_from_cluster
         ]
 
         urlopen_mock = MagicMock(side_effect=http_calls)
@@ -742,6 +746,23 @@ class TestClusterDeploymentController(TestCase):
         senza_switch_mock.assert_called_once_with(STACK_NAME, test_version, 100)
         senza_delete_mock.assert_called_once_with(STACK_NAME, test_version)
         senza_instances_mock.assert_called_with(STACK_NAME, test_version)
+
+    def test_should_not_raise_exception_if_shard_is_healthy(self):
+        self.__controller.verify_shard_health(COLLECTION, SHARD)
+
+    def test_should_raise_exception_if_shard_has_no_active_leader(self):
+        urlopen_mock = MagicMock(side_effect=self.__side_effect_return_cluster_state_no_leader)
+        urllib.request.urlopen = urlopen_mock
+        with self.assertRaisesRegex(Exception, 'Shard \[{}\] of collection \[{}\] has no active leader'
+                                               .format(SHARD, COLLECTION)):
+            self.__controller.verify_shard_health(COLLECTION, SHARD)
+
+    def test_should_raise_exception_if_shard_has_not_enough_active_nodes(self):
+        urlopen_mock = MagicMock(side_effect=self.__side_effect_return_cluster_state_only_one_active_replica)
+        urllib.request.urlopen = urlopen_mock
+        with self.assertRaisesRegex(Exception, 'Shard \[{}\] of collection \[{}\] has not enough active nodes: \[{}\]'
+                                               .format(SHARD, COLLECTION, '1')):
+            self.__controller.verify_shard_health(COLLECTION, SHARD)
 
     def __side_effect_all_ok(self, value):
         self.assertIsNotNone(value)
