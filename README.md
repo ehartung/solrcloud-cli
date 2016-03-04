@@ -3,7 +3,7 @@
 
 # SolrCloud-CLI
 
-Deployment tool for [STUPS](https://stups.io/) SolrCloud appliance.
+Deployment tool for [STUPS](https://stups.io/) [SolrCloud appliance](https://github.com/zalando/solrcloud-appliance).
 
 ## Table of contents
 1. Install SolrCloud-CLI
