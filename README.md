@@ -1,5 +1,5 @@
 [![Build Status](https://travis-ci.org/zalando-incubator/solrcloud-cli.svg?branch=master)](https://travis-ci.org/zalando-incubator/solrcloud-cli?branch=master)
-[![Coverage Status](https://coveralls.io/repos/zalando-incubator/solrcloud-cli/badge.svg?branch=master&service=github)](https://coveralls.io/github/zalando-incubator/solrcloud-cli?branch=master)
+[![Coverage Status](https://codecov.io/github/zalando-incubator/solrcloud-cli/coverage.svg?branch=master)](https://codecov.io/github/zalando-incubator/solrcloud-cli?branch=master)
 
 # SolrCloud-CLI
 
