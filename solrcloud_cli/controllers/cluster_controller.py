@@ -22,7 +22,7 @@ class ClusterController(metaclass=ABCMeta):
             request = urllib.request.Request(url, headers=headers)
             response = urllib.request.urlopen(request)
             code = response.getcode()
-            content = response.readall().decode('utf-8')
+            content = response.read().decode('utf-8')
             response.close()
             if code != 200:
                 raise Exception('Received unexpected status code from Solr: [{}]'.format(code))
