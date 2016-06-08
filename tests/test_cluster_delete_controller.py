@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from mock import MagicMock, call
+from mock import MagicMock
 from unittest import TestCase
 from solrcloud_cli.controllers.cluster_delete_controller import ClusterDeleteController
 from solrcloud_cli.services.senza_wrapper import SenzaWrapper
@@ -183,13 +183,19 @@ class TestClusterDeleteController(TestCase):
 
         switch_calls = senza_switch_mock.call_args_list
         self.assertEquals(2, len(switch_calls), 'Unexpected number of switch calls')
-        self.assertIn(call(STACK_NAME, 'test-version1', 0), switch_calls)
-        self.assertIn(call(STACK_NAME, 'test-version2', 0), switch_calls)
+        self.assertEqual(switch_calls[0][0][0], STACK_NAME)
+        self.assertEqual(switch_calls[0][0][1], 'test-version1')
+        self.assertEqual(switch_calls[0][0][2], 0)
+        self.assertEqual(switch_calls[1][0][0], STACK_NAME)
+        self.assertEqual(switch_calls[1][0][1], 'test-version2')
+        self.assertEqual(switch_calls[1][0][2], 0)
 
         delete_calls = senza_delete_mock.call_args_list
         self.assertEquals(2, len(delete_calls), 'Unexpected number of delete calls')
-        self.assertIn(call(STACK_NAME, 'test-version1'), delete_calls)
-        self.assertIn(call(STACK_NAME, 'test-version2'), delete_calls)
+        self.assertEqual(delete_calls[0][0][0], STACK_NAME)
+        self.assertEqual(delete_calls[0][0][1], 'test-version1')
+        self.assertEqual(delete_calls[1][0][0], STACK_NAME)
+        self.assertEqual(delete_calls[1][0][1], 'test-version2')
 
     def test_should_raise_exception_when_deleting_a_complete_cluster_without_version(self):
         versions = []
@@ -206,7 +212,7 @@ class TestClusterDeleteController(TestCase):
         response_mock = MagicMock()
         # return OK for all HTTP requests
         response_mock.getcode.return_value = HTTP_CODE_OK
-        response_mock.readall.return_value = bytes(json.dumps(CLUSTER_NORMAL), 'utf-8')
+        response_mock.read.return_value = bytes(json.dumps(CLUSTER_NORMAL), 'utf-8')
         return response_mock
 
     def __side_effect_all_ok(self, value):

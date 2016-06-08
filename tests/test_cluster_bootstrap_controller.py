@@ -296,7 +296,7 @@ class TestClusterBootstrapController(TestCase):
         response_mock = MagicMock()
         # return OK for all HTTP requests
         response_mock.getcode.return_value = HTTP_CODE_OK
-        response_mock.readall.return_value = bytes(json.dumps(CLUSTER_NORMAL), 'utf-8')
+        response_mock.read.return_value = bytes(json.dumps(CLUSTER_NORMAL), 'utf-8')
         return response_mock
 
     def __side_effect_config_list(self, value):

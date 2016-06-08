@@ -790,42 +790,42 @@ class TestClusterDeploymentController(TestCase):
         response_mock = MagicMock()
         # return OK for all HTTP requests
         response_mock.getcode.return_value = HTTP_CODE_OK
-        response_mock.readall.return_value = bytes(json.dumps(CLUSTER_OLD_NODES), 'utf-8')
+        response_mock.read.return_value = bytes(json.dumps(CLUSTER_OLD_NODES), 'utf-8')
         return response_mock
 
     def __side_effect_return_cluster_state_all_registered_nodes(self, value):
         response_mock = MagicMock()
         # return OK for all HTTP requests
         response_mock.getcode.return_value = HTTP_CODE_OK
-        response_mock.readall.return_value = bytes(json.dumps(CLUSTER_ALL_REGISTERED), 'utf-8')
+        response_mock.read.return_value = bytes(json.dumps(CLUSTER_ALL_REGISTERED), 'utf-8')
         return response_mock
 
     def __side_effect_return_cluster_state_new_nodes(self, value):
         response_mock = MagicMock()
         # return OK for all HTTP requests
         response_mock.getcode.return_value = HTTP_CODE_OK
-        response_mock.readall.return_value = bytes(json.dumps(CLUSTER_NEW_NODES), 'utf-8')
+        response_mock.read.return_value = bytes(json.dumps(CLUSTER_NEW_NODES), 'utf-8')
         return response_mock
 
     def __side_effect_return_cluster_state_old_nodes(self, value):
         response_mock = MagicMock()
         # return OK for all HTTP requests
         response_mock.getcode.return_value = HTTP_CODE_OK
-        response_mock.readall.return_value = bytes(json.dumps(CLUSTER_OLD_NODES), 'utf-8')
+        response_mock.read.return_value = bytes(json.dumps(CLUSTER_OLD_NODES), 'utf-8')
         return response_mock
 
     def __side_effect_return_cluster_state_all_nodes(self, value):
         response_mock = MagicMock()
         # return OK for all HTTP requests
         response_mock.getcode.return_value = HTTP_CODE_OK
-        response_mock.readall.return_value = bytes(json.dumps(CLUSTER_ALL_NODES), 'utf-8')
+        response_mock.read.return_value = bytes(json.dumps(CLUSTER_ALL_NODES), 'utf-8')
         return response_mock
 
     def __side_effect_return_cluster_state_all_nodes_one_not_active(self, value):
         response_mock = MagicMock()
         # return OK for all HTTP requests
         response_mock.getcode.return_value = HTTP_CODE_OK
-        response_mock.readall.return_value = bytes(json.dumps(CLUSTER_ALL_NODES_ONE_NOT_ACTIVE), 'utf-8')
+        response_mock.read.return_value = bytes(json.dumps(CLUSTER_ALL_NODES_ONE_NOT_ACTIVE), 'utf-8')
         return response_mock
 
     def __side_effect_return_cluster_state_no_leader(self, value):
@@ -835,7 +835,7 @@ class TestClusterDeploymentController(TestCase):
         # return OK for all HTTP requests
         response_mock.getcode.return_value = HTTP_CODE_OK
         if cluster_status_match:
-            response_mock.readall.return_value = bytes(json.dumps(CLUSTER_NO_LEADER), 'utf-8')
+            response_mock.read.return_value = bytes(json.dumps(CLUSTER_NO_LEADER), 'utf-8')
         return response_mock
 
     def __side_effect_return_cluster_state_only_one_active_replica(self, value):
@@ -845,5 +845,5 @@ class TestClusterDeploymentController(TestCase):
         # return OK for all HTTP requests
         response_mock.getcode.return_value = HTTP_CODE_OK
         if cluster_status_match:
-            response_mock.readall.return_value = bytes(json.dumps(CLUSTER_ONLY_ONE_ACTIVE_REPLICA), 'utf-8')
+            response_mock.read.return_value = bytes(json.dumps(CLUSTER_ONLY_ONE_ACTIVE_REPLICA), 'utf-8')
         return response_mock
