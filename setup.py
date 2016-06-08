@@ -13,8 +13,8 @@ import setuptools
 from setuptools.command.test import test as TestCommand
 from setuptools import setup
 
-if sys.version_info < (3, 4, 0):
-    sys.stderr.write('FATAL: SolrCloud CLI needs to be run with Python 3.4+\n')
+if sys.version_info < (3, 5, 0):
+    sys.stderr.write('FATAL: SolrCloud CLI needs to be run with Python 3.5+\n')
     sys.exit(1)
 __location__ = os.path.join(os.getcwd(), os.path.dirname(inspect.getfile(inspect.currentframe())))
 
@@ -43,7 +43,7 @@ CLASSIFIERS = [
     'Environment :: Console',
     'Development Status :: 4 - Beta',
     'Programming Language :: Python',
-    'Programming Language :: Python :: 3.4',
+    'Programming Language :: Python :: 3.5',
     'Programming Language :: Python :: Implementation :: CPython',
     'Operating System :: POSIX :: Linux',
     'Operating System :: MacOS :: MacOS X',
