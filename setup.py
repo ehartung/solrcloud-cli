@@ -25,6 +25,7 @@ def read_version(package):
         exec(fd.read(), data)
     return data['__version__']
 
+
 NAME = 'solrcloud-cli'
 MAIN_PACKAGE = 'solrcloud_cli'
 VERSION = read_version(MAIN_PACKAGE)

@@ -42,7 +42,7 @@ class SenzaWrapper:
         self.__stack_creation_retry_timeout = retry_timeout
 
     def set_region(self, region: str):
-        self.__region=region
+        self.__region = region
 
     def add_parameter(self, key: str, value):
         if key and value:

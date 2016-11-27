@@ -99,5 +99,6 @@ def solrcloud_cli(cli_args):
 def main():
     solrcloud_cli(sys.argv[1:])
 
+
 if __name__ == '__main__':
     main()
