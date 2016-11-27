@@ -8,7 +8,7 @@ import sys
 import time
 
 SENZA = 'senza'
-REGION = 'eu-west-1'
+DEFAULT_REGION = 'eu-west-1'
 FIRST_STACK_VERSION = 'blue'
 SECOND_STACK_VERSION = 'green'
 
@@ -24,6 +24,7 @@ class SenzaWrapper:
     __retry_wait = DEFAULT_RETRY_WAIT
     __stack_creation_retry_wait = DEFAULT_STACK_CREATION_RETRY_WAIT
     __stack_creation_retry_timeout = DEFAULT_STACK_CREATION_RETRY_TIMEOUT
+    __region = DEFAULT_REGION
 
     __parameters = None
 
@@ -39,6 +40,9 @@ class SenzaWrapper:
 
     def set_stack_creation_retry_timeout(self, retry_timeout: int):
         self.__stack_creation_retry_timeout = retry_timeout
+
+    def set_region(self, region: str):
+        self.__region=region
 
     def add_parameter(self, key: str, value):
         if key and value:
@@ -136,7 +140,7 @@ class SenzaWrapper:
             raise Exception('Unexpected output: [{}]'.format(traffic_output))
 
     def __execute_senza(self, command: str, *args):
-        senza_command = [SENZA, command, '--region', REGION]
+        senza_command = [SENZA, command, '--region', self.__region]
 
         if command in ['create', 'delete']:
             senza_command += list(args)

@@ -27,6 +27,7 @@ def build_args_parser():
     parser.add_argument('-t', '--token', help='OAuth token for connecting to the Solr cloud API')
     parser.add_argument('-f', '--config-file', help='Path to config file. (default: %s)' % DEFAULT_CONF_FILE,
                         dest='config')
+    parser.add_argument('--region', help='AWS region in which SolrCloud should be installed')
     return parser
 
 
@@ -46,6 +47,9 @@ def solrcloud_cli(cli_args):
         settings = yaml.load(fd)
 
     senza_wrapper = SenzaWrapper(args.senza_configuration)
+    if args.region:
+        senza_wrapper.set_region(args.region)
+
     for key, value in settings.items():
         senza_wrapper.add_parameter(key, value)
 
