@@ -8,7 +8,8 @@ import yaml
 from solrcloud_cli.controllers.cluster_bootstrap_controller import ClusterBootstrapController
 from solrcloud_cli.controllers.cluster_delete_controller import ClusterDeleteController
 from solrcloud_cli.controllers.cluster_deployment_controller import ClusterDeploymentController
-from solrcloud_cli.services.senza_wrapper import SenzaWrapper
+from solrcloud_cli.services.senza_deployment_service import SenzaDeploymentService
+from solrcloud_cli.services.solr_collections_service import SolrCollectionsService
 
 from argparse import ArgumentParser
 
@@ -24,7 +25,7 @@ def build_args_parser():
     parser.add_argument('-r', '--replication-level', default=3, help='Number of replications per shard')
     parser.add_argument('-c', '--senza-configuration', default='solrcloud-appliance.yaml',
                         help='Senza configuration file for Solr cluster on AWS with STUPS')
-    parser.add_argument('-t', '--token', help='OAuth token for connecting to the Solr cloud API')
+    parser.add_argument('-t', '--token', default='', help='OAuth token for connecting to the Solr cloud API')
     parser.add_argument('-f', '--config-file', help='Path to config file. (default: %s)' % DEFAULT_CONF_FILE,
                         dest='config')
     parser.add_argument('--region', help='AWS region in which SolrCloud should be installed')
@@ -46,33 +47,36 @@ def solrcloud_cli(cli_args):
     with open(args.config, 'rb') as fd:
         settings = yaml.load(fd)
 
-    senza_wrapper = SenzaWrapper(args.senza_configuration)
+    deployment_service = SenzaDeploymentService(args.senza_configuration)
+
+    solr_collections_service = SolrCollectionsService(base_url=settings['SolrBaseUrl'],
+                                                      oauth_token=args.token,
+                                                      replication_factor=args.replication_level,
+                                                      sharding_level=args.sharding_level)
+
     if args.region:
-        senza_wrapper.set_region(args.region)
+        deployment_service.set_region(args.region)
 
     for key, value in settings.items():
-        senza_wrapper.add_parameter(key, value)
+        deployment_service.add_parameter(key, value)
 
     if args.command in ['bootstrap']:
-        controller = ClusterBootstrapController(base_url=settings['SolrBaseUrl'],
-                                                stack_name=settings['ApplicationId'],
+        controller = ClusterBootstrapController(stack_name=settings['ApplicationId'],
                                                 sharding_level=args.sharding_level,
                                                 replication_factor=args.replication_level,
                                                 image_version=args.image_version,
-                                                oauth_token=args.token,
-                                                senza_wrapper=senza_wrapper)
+                                                solr_collections_service=solr_collections_service,
+                                                deployment_service=deployment_service)
     elif args.command in ['deploy', 'create-new-cluster', 'delete-old-cluster', 'add-new-nodes', 'delete-old-nodes',
                           'switch']:
-        controller = ClusterDeploymentController(base_url=settings['SolrBaseUrl'],
-                                                 stack_name=settings['ApplicationId'],
+        controller = ClusterDeploymentController(stack_name=settings['ApplicationId'],
                                                  image_version=args.image_version,
-                                                 oauth_token=args.token,
-                                                 senza_wrapper=senza_wrapper)
+                                                 solr_collections_service=solr_collections_service,
+                                                 deployment_service=deployment_service)
     elif args.command in ['delete']:
-        controller = ClusterDeleteController(base_url=settings['SolrBaseUrl'],
-                                             stack_name=settings['ApplicationId'],
-                                             oauth_token=args.token,
-                                             senza_wrapper=senza_wrapper)
+        controller = ClusterDeleteController(stack_name=settings['ApplicationId'],
+                                             solr_collections_service=solr_collections_service,
+                                             deployment_service=deployment_service)
     else:
         print('Unknown command:', args.command)
         parser.print_usage()
@@ -102,3 +106,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+

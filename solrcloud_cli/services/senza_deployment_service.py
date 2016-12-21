@@ -7,6 +7,8 @@ import subprocess
 import sys
 import time
 
+from solrcloud_cli.services.deployment_service import DeploymentService
+
 SENZA = 'senza'
 DEFAULT_REGION = 'eu-west-1'
 FIRST_STACK_VERSION = 'blue'
@@ -18,7 +20,7 @@ DEFAULT_STACK_CREATION_RETRY_TIMEOUT = 900
 DEFAULT_RETRY_WAIT = 1
 
 
-class SenzaWrapper:
+class SenzaDeploymentService(DeploymentService):
 
     __config_file_name = ''
     __retry_wait = DEFAULT_RETRY_WAIT

@@ -4,7 +4,8 @@
 from mock import MagicMock
 from unittest import TestCase
 from solrcloud_cli.controllers.cluster_delete_controller import ClusterDeleteController
-from solrcloud_cli.services.senza_wrapper import SenzaWrapper
+from solrcloud_cli.services.senza_deployment_service import SenzaDeploymentService
+from solrcloud_cli.services.solr_collections_service import SolrCollectionsService
 
 import json
 import urllib.error
@@ -61,11 +62,18 @@ class TestClusterDeleteController(TestCase):
 
     __controller = None
     __urlopen_mock = None
+    __solr_collections_service = None
 
     def setUp(self):
-        senza_wrapper = SenzaWrapper(CONFIG)
-        self.__controller = ClusterDeleteController(base_url=BASE_URL, stack_name=STACK_NAME, oauth_token=OAUTH_TOKEN,
-                                                    senza_wrapper=senza_wrapper)
+        deployment_service = SenzaDeploymentService(CONFIG)
+        self.__solr_collections_service = SolrCollectionsService(base_url=BASE_URL,
+                                                          oauth_token=OAUTH_TOKEN,
+                                                          replication_factor=REPLICATION_FACTOR,
+                                                          sharding_level=-1)
+
+        self.__controller = ClusterDeleteController(stack_name=STACK_NAME,
+                                                    solr_collections_service=self.__solr_collections_service,
+                                                    deployment_service=deployment_service)
 
     def test_should_return_success_when_deleting_collection_in_cluster(self):
         urllib.request.urlopen = MagicMock(side_effect=self.__side_effect_all_ok)
@@ -126,41 +134,45 @@ class TestClusterDeleteController(TestCase):
             self.assertIn(url, called_urls, 'URL was not called')
 
     def test_should_forward_method_call_to_senza_when_deleting_a_cluster_version(self):
-        senza_mock = SenzaWrapper(CONFIG)
+        senza_mock = SenzaDeploymentService(CONFIG)
         senza_delete_mock = senza_mock.delete_stack_version = MagicMock()
 
-        controller = ClusterDeleteController(base_url=BASE_URL, stack_name=STACK_NAME, oauth_token=OAUTH_TOKEN,
-                                             senza_wrapper=senza_mock)
+        controller = ClusterDeleteController(stack_name=STACK_NAME,
+                                             solr_collections_service=self.__solr_collections_service,
+                                             deployment_service=senza_mock)
         controller.delete_cluster_version('test-version')
         senza_delete_mock.assert_called_once_with(STACK_NAME, 'test-version')
 
     def test_should_forward_method_call_to_senza_when_switching_off_a_cluster_version(self):
-        senza_mock = SenzaWrapper(CONFIG)
+        senza_mock = SenzaDeploymentService(CONFIG)
         senza_switch_mock = senza_mock.switch_traffic = MagicMock()
 
-        controller = ClusterDeleteController(base_url=BASE_URL, stack_name=STACK_NAME, oauth_token=OAUTH_TOKEN,
-                                             senza_wrapper=senza_mock)
+        controller = ClusterDeleteController(stack_name=STACK_NAME,
+                                             solr_collections_service=self.__solr_collections_service,
+                                             deployment_service=senza_mock)
         controller.switch_off_traffic('test-version')
         senza_switch_mock.assert_called_once_with(STACK_NAME, 'test-version', 0)
 
     def test_should_not_raise_exception_when_weight_was_already_zero_before_switching_off_a_cluster_version(self):
-        senza_mock = SenzaWrapper(CONFIG)
+        senza_mock = SenzaDeploymentService(CONFIG)
         senza_switch_mock = senza_mock.switch_traffic = MagicMock(side_effect=Exception('Traffic weight did not change'
                                                                                         ', traffic for stack \[{}\] '
                                                                                         'version \[{}\] is still at '
                                                                                         '\[{}\]%'.format('test', 'test',
                                                                                                          '0')))
 
-        controller = ClusterDeleteController(base_url=BASE_URL, stack_name=STACK_NAME, oauth_token=OAUTH_TOKEN,
-                                             senza_wrapper=senza_mock)
+        controller = ClusterDeleteController(stack_name=STACK_NAME,
+                                             solr_collections_service=self.__solr_collections_service,
+                                             deployment_service=senza_mock)
         controller.switch_off_traffic('test-version')
         senza_switch_mock.assert_called_once_with(STACK_NAME, 'test-version', 0)
 
     def test_should_raise_exception_when_switching_off_a_cluster_version_failed(self):
-        senza_mock = SenzaWrapper(CONFIG)
+        senza_mock = SenzaDeploymentService(CONFIG)
         senza_switch_mock = senza_mock.switch_traffic = MagicMock(side_effect=Exception('Some exception'))
-        controller = ClusterDeleteController(base_url=BASE_URL, stack_name=STACK_NAME, oauth_token=OAUTH_TOKEN,
-                                             senza_wrapper=senza_mock)
+        controller = ClusterDeleteController(stack_name=STACK_NAME,
+                                             solr_collections_service=self.__solr_collections_service,
+                                             deployment_service=senza_mock)
         with self.assertRaisesRegex(Exception, 'Some exception'):
             controller.switch_off_traffic('test-version')
 
@@ -168,12 +180,13 @@ class TestClusterDeleteController(TestCase):
 
     def test_should_not_raise_exceptions_when_deleting_a_complete_cluster(self):
         versions = [{'version': 'test-version1'}, {'version': 'test-version2'}]
-        senza_mock = SenzaWrapper(CONFIG)
+        senza_mock = SenzaDeploymentService(CONFIG)
         senza_versions_mock = senza_mock.get_all_stack_versions = MagicMock(return_value=versions)
         senza_switch_mock = senza_mock.switch_traffic = MagicMock(return_value=True)
         senza_delete_mock = senza_mock.delete_stack_version = MagicMock()
-        controller = ClusterDeleteController(base_url=BASE_URL, stack_name=STACK_NAME, oauth_token=OAUTH_TOKEN,
-                                             senza_wrapper=senza_mock)
+        controller = ClusterDeleteController(stack_name=STACK_NAME,
+                                             solr_collections_service=self.__solr_collections_service,
+                                             deployment_service=senza_mock)
 
         urlopen_mock = MagicMock(side_effect=self.__side_effect_return_cluster_state)
         urllib.request.urlopen = urlopen_mock
@@ -199,10 +212,11 @@ class TestClusterDeleteController(TestCase):
 
     def test_should_raise_exception_when_deleting_a_complete_cluster_without_version(self):
         versions = []
-        senza_mock = SenzaWrapper(CONFIG)
+        senza_mock = SenzaDeploymentService(CONFIG)
         senza_versions_mock = senza_mock.get_all_stack_versions = MagicMock(return_value=versions)
-        controller = ClusterDeleteController(base_url=BASE_URL, stack_name=STACK_NAME, oauth_token=OAUTH_TOKEN,
-                                             senza_wrapper=senza_mock)
+        controller = ClusterDeleteController(stack_name=STACK_NAME,
+                                             solr_collections_service=self.__solr_collections_service,
+                                             deployment_service=senza_mock)
 
         with self.assertRaisesRegex(Exception, 'No active stack version found'):
             controller.delete_cluster()

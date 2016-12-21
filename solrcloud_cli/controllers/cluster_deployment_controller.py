@@ -4,11 +4,10 @@
 import logging
 import sys
 import time
-import urllib.error
-import urllib.request
 
 from solrcloud_cli.controllers.cluster_controller import ClusterController
-from solrcloud_cli.services.senza_wrapper import SenzaWrapper
+from solrcloud_cli.services.senza_deployment_service import DeploymentService
+from solrcloud_cli.services.solr_collections_service import SolrCollectionsService
 
 DEFAULT_LEADER_CHECK_RETRY_COUNT = 30
 DEFAULT_LEADER_CHECK_RETRY_WAIT = 1
@@ -17,7 +16,6 @@ DEFAULT_ADD_NODE_RETRY_WAIT = 10
 DEFAULT_ADD_NODE_TIMEOUT = 900
 DEFAULT_CREATE_CLUSTER_RETRY_WAIT = 10
 DEFAULT_CREATE_CLUSTER_TIMEOUT = 120
-COLLECTIONS_API_PATH = '/admin/collections'
 
 BLUE_GREEN_DEPLOYMENT_VERSIONS = ['blue', 'green']
 
@@ -37,15 +35,14 @@ class ClusterDeploymentController(ClusterController):
     __create_cluster_retry_wait = DEFAULT_CREATE_CLUSTER_RETRY_WAIT
     __create_cluster_timeout = DEFAULT_CREATE_CLUSTER_TIMEOUT
 
-    def __init__(self, base_url: str, stack_name: str, image_version: str, oauth_token: str,
-                 senza_wrapper: SenzaWrapper):
+    def __init__(self, stack_name: str, image_version: str, solr_collections_service: SolrCollectionsService,
+                 deployment_service: DeploymentService):
 
-        self._api_url = base_url.strip('/') + COLLECTIONS_API_PATH
-        self._oauth_token = oauth_token
         self._stack_name = stack_name
         self.__image_version = image_version
-        self._senza = senza_wrapper
-        cluster_state = self.get_cluster_state()
+        self._deployment_service = deployment_service
+        self._solr_collections_service = solr_collections_service
+        cluster_state = self._solr_collections_service.get_cluster_state()
         if cluster_state and cluster_state['cluster']['collections'].keys():
             first_collection = list(cluster_state['cluster']['collections'].keys())[0]
             self.__replication_factor = \
@@ -71,35 +68,40 @@ class ClusterDeploymentController(ClusterController):
 
     def set_add_node_retry_count(self, retry_count: int):
         self.__add_node_retry_count = retry_count
+        self._solr_collections_service.set_add_node_retry_count(retry_count)
 
     def set_add_node_retry_wait(self, retry_wait: int):
         self.__add_node_retry_wait = retry_wait
+        self._solr_collections_service.set_add_node_retry_wait(retry_wait)
 
     def set_add_node_timeout(self, timeout: int):
         self.__add_node_timeout = timeout
+        self._solr_collections_service.set_add_node_timeout(timeout)
 
     def set_create_cluster_retry_wait(self, retry_wait: int):
         self.__create_cluster_retry_wait = retry_wait
+        self._solr_collections_service.set_create_cluster_retry_wait(retry_wait)
 
     def set_create_cluster_timeout(self, timeout: int):
         self.__create_cluster_timeout = timeout
+        self._solr_collections_service.set_create_cluster_timeout(timeout)
 
     def get_passive_stack_version(self):
-        passive_stack_version = self._senza.get_passive_stack_version(self._stack_name)
+        passive_stack_version = self._deployment_service.get_passive_stack_version(self._stack_name)
         if not passive_stack_version:
-            current_version = self._senza.get_active_stack_version(self._stack_name)
+            current_version = self._deployment_service.get_active_stack_version(self._stack_name)
             passive_stack_version = list(filter(lambda x: x != current_version, BLUE_GREEN_DEPLOYMENT_VERSIONS))[0]
         return passive_stack_version
 
     def create_cluster(self):
-        self._senza.create_stack(self._stack_name, self.get_passive_stack_version(), self.__image_version)
+        self._deployment_service.create_stack(self._stack_name, self.get_passive_stack_version(), self.__image_version)
 
         # Wait for all nodes being registered in cluster
         nodes = self.get_cluster_nodes(self._stack_name, self.get_passive_stack_version())
         timer = 0
         all_nodes_added = False
         while not all_nodes_added and timer < self.__create_cluster_timeout:
-            cluster_state = self.get_cluster_state()
+            cluster_state = self._solr_collections_service.get_cluster_state()
             all_nodes_added = True
             for node in nodes:
                 node_name = node + ':8983_solr'
@@ -116,11 +118,11 @@ class ClusterDeploymentController(ClusterController):
 
     def delete_cluster(self):
         old_stack_version = self.get_passive_stack_version()
-        self._senza.delete_stack_version(self._stack_name, old_stack_version)
+        self._deployment_service.delete_stack_version(self._stack_name, old_stack_version)
 
     def add_new_nodes_to_cluster(self):
         nodes = self.get_cluster_nodes(self._stack_name, self.get_passive_stack_version())
-        cluster_state = self.get_cluster_state()
+        cluster_state = self._solr_collections_service.get_cluster_state()
 
         if len(nodes) < self.__sharding_level * self.__replication_factor:
             raise Exception('Not enough instances for current cluster layout: [{}]<[{}]'.format(
@@ -146,7 +148,7 @@ class ClusterDeploymentController(ClusterController):
         timer = 0
         all_replicas_active = False
         while not all_replicas_active and timer < self.__add_node_timeout:
-            cluster_state = self.get_cluster_state()
+            cluster_state = self._solr_collections_service.get_cluster_state()
             all_replicas_active = True
             for collection_name, collection_values in cluster_state['cluster']['collections'].items():
                 for shard_name, shard_values in collection_values['shards'].items():
@@ -164,7 +166,7 @@ class ClusterDeploymentController(ClusterController):
 
     def delete_old_nodes_from_cluster(self):
         nodes = self.get_cluster_nodes(self._stack_name, self.get_passive_stack_version())
-        cluster_state = self.get_cluster_state()
+        cluster_state = self._solr_collections_service.get_cluster_state()
 
         for collection_name, collection_values in cluster_state['cluster']['collections'].items():
             for shard_name, shard_values in collection_values['shards'].items():
@@ -184,71 +186,16 @@ class ClusterDeploymentController(ClusterController):
                 self.verify_shard_health(collection_name, shard_name)
 
     def add_replica_to_cluster(self, collection_name: str, shard_name: str, node_name: str):
-        url = self._api_url + '?action=ADDREPLICA'
-        url += '&collection=' + collection_name
-        url += '&shard=' + shard_name
-        url += '&node=' + node_name
-        retry = True
-        retry_count = 0
-        while retry and retry_count <= self.__add_node_retry_count:
-            try:
-                headers = dict()
-                headers['Authorization'] = 'Bearer ' + self._oauth_token
-                request = urllib.request.Request(url, headers=headers)
-                response = urllib.request.urlopen(request)
-                code = response.getcode()
-                response.close()
-                if code != 200:
-                    raise Exception('Received unexpected status code from Solr: [{}]'.format(code))
-                retry = False
-            except urllib.error.HTTPError as e:
-                if e.code == 504:
-                    logging.warning('HTTP Timeout while adding node [{}], but replica should have been added anyways.'
-                                    .format(node_name))
-                    retry = False
-                elif e.code == 400:
-                    logging.warning('HTTP error 400 (Bad Request) while adding node [{}] to shard [{}] of collection '
-                                    '[{}]'.format(node_name, shard_name, collection_name))
-                else:
-                    raise Exception('Failed sending request to Solr [{}]: {}'.format(url, e))
-            except Exception as e:
-                raise Exception('Failed sending request to Solr [{}]: {}'.format(url, e))
-            finally:
-                if retry:
-                    time.sleep(self.__add_node_retry_wait)
-                    retry_count += 1
-        return 0
+        return self._solr_collections_service.add_replica_to_cluster(collection_name, shard_name, node_name)
 
     def delete_replica_from_cluster(self, collection: str, shard: str, replica: str):
-        url = self._api_url + '?action=DELETEREPLICA'
-        url += '&collection=' + collection
-        url += '&shard=' + shard
-        url += '&replica=' + replica
-        try:
-            headers = dict()
-            headers['Authorization'] = 'Bearer ' + self._oauth_token
-            request = urllib.request.Request(url, headers=headers)
-            response = urllib.request.urlopen(request)
-            code = response.getcode()
-            response.close()
-            if code != 200:
-                raise Exception('Received unexpected status code from Solr: [{}]'.format(code))
-        except urllib.error.HTTPError as e:
-            if e.code == 504:
-                logging.warning('HTTP Timeout while deleting replica [{}], but replica should have been deleted '
-                                'anyways.'.format(replica))
-            elif e.code == 500:
-                logging.warning('Error while deleting replica [{}]: {}.'.format(replica, e))
-            else:
-                raise Exception('Failed sending request to Solr [{}]: {}'.format(url, e))
-        except Exception as e:
-            raise Exception('Failed sending request to Solr [{}]: {}'.format(url, e))
+        return self._solr_collections_service.delete_replica_from_cluster(collection, shard, replica)
 
     def get_cluster_nodes(self, stack_name, stack_version):
-        return sorted(self._senza.get_stack_instances(stack_name, stack_version))
+        return sorted(self._deployment_service.get_stack_instances(stack_name, stack_version))
 
     def switch_traffic(self):
-        self._senza.switch_traffic(self._stack_name, self.get_passive_stack_version(), 100)
+        self._deployment_service.switch_traffic(self._stack_name, self.get_passive_stack_version(), 100)
 
     def verify_shard_health(self, collection_name: str, shard_name: str):
         # Verify that shard has an active leader and at least two active nodes
@@ -257,7 +204,7 @@ class ClusterDeploymentController(ClusterController):
         retries = 0
         while ((not shard_has_active_leader or active_nodes_in_shard < 2) and
                 retries <= self.__leader_check_retry_count):
-            current_cluster_state = self.get_cluster_state()
+            current_cluster_state = self._solr_collections_service.get_cluster_state()
             shard_has_active_leader = self.has_active_leader(current_cluster_state, collection_name,
                                                              shard_name)
             active_nodes_in_shard = self.get_number_of_active_nodes(current_cluster_state,

@@ -3,7 +3,8 @@
 from mock import MagicMock
 from unittest import TestCase
 from solrcloud_cli.controllers.cluster_bootstrap_controller import ClusterBootstrapController
-from solrcloud_cli.services.senza_wrapper import SenzaWrapper
+from solrcloud_cli.services.senza_deployment_service import SenzaDeploymentService
+from solrcloud_cli.services.solr_collections_service import SolrCollectionsService
 from testfixtures import log_capture
 
 import json
@@ -71,14 +72,21 @@ class TestClusterBootstrapController(TestCase):
 
     __controller = None
     __urlopen_mock = None
+    __solr_sollections_service = None
 
     def setUp(self):
-        senza_wrapper = SenzaWrapper(CONFIG)
-        self.__controller = ClusterBootstrapController(base_url=BASE_URL, stack_name=STACK_NAME,
+        deployment_service = SenzaDeploymentService(CONFIG)
+        self.__solr_collections_service = SolrCollectionsService(base_url=BASE_URL,
+                                                          oauth_token=OAUTH_TOKEN,
+                                                          replication_factor=REPLICATION_FACTOR,
+                                                          sharding_level=SHARDING_LEVEL)
+
+        self.__controller = ClusterBootstrapController(stack_name=STACK_NAME,
                                                        sharding_level=SHARDING_LEVEL,
                                                        replication_factor=REPLICATION_FACTOR,
-                                                       image_version=IMAGE_VERSION, oauth_token=OAUTH_TOKEN,
-                                                       senza_wrapper=senza_wrapper)
+                                                       image_version=IMAGE_VERSION,
+                                                       solr_collections_service=self.__solr_collections_service,
+                                                       deployment_service=deployment_service)
         self.__controller.set_retry_count(1)
         self.__controller.set_retry_wait(0)
 
@@ -153,39 +161,42 @@ class TestClusterBootstrapController(TestCase):
             self.assertIn(url, called_urls, 'URL was not called')
 
     def test_should_not_raise_any_exception_when_creating_a_new_cluster(self):
-        senza_mock = SenzaWrapper(CONFIG)
+        senza_mock = SenzaDeploymentService(CONFIG)
         senza_create_mock = senza_mock.create_stack = MagicMock()
 
-        controller = ClusterBootstrapController(base_url=BASE_URL, stack_name=STACK_NAME,
+        controller = ClusterBootstrapController(stack_name=STACK_NAME,
                                                 sharding_level=SHARDING_LEVEL,
                                                 replication_factor=REPLICATION_FACTOR,
-                                                image_version=IMAGE_VERSION, oauth_token=OAUTH_TOKEN,
-                                                senza_wrapper=senza_mock)
+                                                image_version=IMAGE_VERSION,
+                                                solr_collections_service=self.__solr_collections_service,
+                                                deployment_service=senza_mock)
         controller.create_cluster()
 
         senza_create_mock.assert_called_once_with(STACK_NAME, INITIAL_BOOTSTRAP_VERSION, IMAGE_VERSION)
 
     def test_should_not_raise_any_exception_when_switching_to_another_cluster_version(self):
-        senza_mock = SenzaWrapper(CONFIG)
+        senza_mock = SenzaDeploymentService(CONFIG)
         senza_switch_mock = senza_mock.switch_traffic = MagicMock()
 
-        controller = ClusterBootstrapController(base_url=BASE_URL, stack_name=STACK_NAME,
+        controller = ClusterBootstrapController(stack_name=STACK_NAME,
                                                 sharding_level=SHARDING_LEVEL,
                                                 replication_factor=REPLICATION_FACTOR,
-                                                image_version=IMAGE_VERSION, oauth_token=OAUTH_TOKEN,
-                                                senza_wrapper=senza_mock)
+                                                image_version=IMAGE_VERSION,
+                                                solr_collections_service=self.__solr_collections_service,
+                                                deployment_service=senza_mock)
         controller.switch_on_traffic()
 
         senza_switch_mock.assert_called_once_with(STACK_NAME, INITIAL_BOOTSTRAP_VERSION, 100)
 
     @log_capture()
     def test_should_not_write_warning_when_waiting_for_cluster_to_be_ready_and_all_nodes_are_available(self, log):
-        senza_mock = SenzaWrapper(CONFIG)
-        controller = ClusterBootstrapController(base_url=BASE_URL, stack_name=STACK_NAME,
+        senza_mock = SenzaDeploymentService(CONFIG)
+        controller = ClusterBootstrapController(stack_name=STACK_NAME,
                                                 sharding_level=SHARDING_LEVEL,
                                                 replication_factor=REPLICATION_FACTOR,
-                                                image_version=IMAGE_VERSION, oauth_token=OAUTH_TOKEN,
-                                                senza_wrapper=senza_mock)
+                                                image_version=IMAGE_VERSION,
+                                                solr_collections_service=self.__solr_collections_service,
+                                                deployment_service=senza_mock)
         controller.set_retry_count(1)
         controller.set_retry_wait(0)
 
@@ -198,13 +209,14 @@ class TestClusterBootstrapController(TestCase):
 
     @log_capture()
     def test_should_write_warning_when_waiting_for_cluster_to_be_ready_and_not_enough_nodes_are_available(self, log):
-        senza_mock = SenzaWrapper(CONFIG)
+        senza_mock = SenzaDeploymentService(CONFIG)
         sharding_level = SHARDING_LEVEL + 1
-        controller = ClusterBootstrapController(base_url=BASE_URL, stack_name=STACK_NAME,
+        controller = ClusterBootstrapController(stack_name=STACK_NAME,
                                                 sharding_level=sharding_level,
                                                 replication_factor=REPLICATION_FACTOR,
-                                                image_version=IMAGE_VERSION, oauth_token=OAUTH_TOKEN,
-                                                senza_wrapper=senza_mock)
+                                                image_version=IMAGE_VERSION,
+                                                solr_collections_service=self.__solr_collections_service,
+                                                deployment_service=senza_mock)
         controller.set_retry_count(1)
         controller.set_retry_wait(0)
 
@@ -221,12 +233,13 @@ class TestClusterBootstrapController(TestCase):
 
     @log_capture()
     def test_should_write_warning_when_waiting_for_cluster_to_be_ready_and_timeout_on_cluster_state(self, log):
-        senza_mock = SenzaWrapper(CONFIG)
-        controller = ClusterBootstrapController(base_url=BASE_URL, stack_name=STACK_NAME,
+        senza_mock = SenzaDeploymentService(CONFIG)
+        controller = ClusterBootstrapController(stack_name=STACK_NAME,
                                                 sharding_level=SHARDING_LEVEL,
                                                 replication_factor=REPLICATION_FACTOR,
-                                                image_version=IMAGE_VERSION, oauth_token=OAUTH_TOKEN,
-                                                senza_wrapper=senza_mock)
+                                                image_version=IMAGE_VERSION,
+                                                solr_collections_service=self.__solr_collections_service,
+                                                deployment_service=senza_mock)
         controller.set_retry_count(1)
         controller.set_retry_wait(0)
 
@@ -250,15 +263,16 @@ class TestClusterBootstrapController(TestCase):
         )
 
     def test_should_not_raise_exceptions_when_executing_all_bootstrap_steps(self):
-        senza_mock = SenzaWrapper(CONFIG)
+        senza_mock = SenzaDeploymentService(CONFIG)
         senza_create_mock = senza_mock.create_stack = MagicMock()
         senza_switch_mock = senza_mock.switch_traffic = MagicMock(return_value=True)
         os.listdir = MagicMock(side_effect=self.__side_effect_config_list)
-        controller = ClusterBootstrapController(base_url=BASE_URL, stack_name=STACK_NAME,
+        controller = ClusterBootstrapController(stack_name=STACK_NAME,
                                                 sharding_level=SHARDING_LEVEL,
                                                 replication_factor=REPLICATION_FACTOR,
-                                                image_version=IMAGE_VERSION, oauth_token=OAUTH_TOKEN,
-                                                senza_wrapper=senza_mock)
+                                                image_version=IMAGE_VERSION,
+                                                solr_collections_service=self.__solr_collections_service,
+                                                deployment_service=senza_mock)
         controller.set_retry_count(1)
         controller.set_retry_wait(0)
 

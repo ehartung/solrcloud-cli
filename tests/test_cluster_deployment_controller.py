@@ -4,7 +4,8 @@
 from mock import MagicMock
 from unittest import TestCase
 from solrcloud_cli.controllers.cluster_deployment_controller import ClusterDeploymentController
-from solrcloud_cli.services.senza_wrapper import SenzaWrapper
+from solrcloud_cli.services.senza_deployment_service import SenzaDeploymentService
+from solrcloud_cli.services.solr_collections_service import SolrCollectionsService
 
 import json
 import re
@@ -323,13 +324,21 @@ class TestClusterDeploymentController(TestCase):
 
     __controller = None
     __urlopen_mock = None
+    __solr_collections_service = None
 
     def setUp(self):
         urllib.request.urlopen = MagicMock(side_effect=self.__side_effect_return_cluster_state_old_nodes)
-        senza_wrapper = SenzaWrapper(CONFIG)
-        self.__controller = ClusterDeploymentController(base_url=BASE_URL, stack_name=STACK_NAME,
-                                                        image_version=IMAGE_VERSION, oauth_token=OAUTH_TOKEN,
-                                                        senza_wrapper=senza_wrapper)
+        deployment_service = SenzaDeploymentService(CONFIG)
+
+        self.__solr_collections_service = SolrCollectionsService(base_url=BASE_URL,
+                                                                 oauth_token=OAUTH_TOKEN,
+                                                                 replication_factor=REPLICATION_FACTOR,
+                                                                 sharding_level=-1)
+
+        self.__controller = ClusterDeploymentController(stack_name=STACK_NAME,
+                                                        image_version=IMAGE_VERSION,
+                                                        solr_collections_service=self.__solr_collections_service,
+                                                        deployment_service=deployment_service)
         self.__controller.set_leader_check_retry_count(1)
         self.__controller.set_leader_check_retry_wait(0)
         self.__controller.set_add_node_retry_count(1)
@@ -391,7 +400,7 @@ class TestClusterDeploymentController(TestCase):
 
         senza_mock = MagicMock()
         senza_mock.get_stack_instances.return_value = NEW_NODES
-        self.__controller.set_senza_wrapper(senza_mock)
+        self.__controller.set_deployment_service(senza_mock)
 
         self.__controller.add_new_nodes_to_cluster()
 
@@ -403,7 +412,7 @@ class TestClusterDeploymentController(TestCase):
         urllib.request.urlopen = MagicMock(side_effect=self.__side_effect_return_cluster_state_old_nodes)
         senza_mock = MagicMock()
         senza_mock.get_stack_instances.return_value = NOT_ENOUGH_NODES
-        self.__controller.set_senza_wrapper(senza_mock)
+        self.__controller.set_deployment_service(senza_mock)
         with self.assertRaises(Exception, msg='Not enough instances for current cluster layout: [2]<[3]'):
             self.__controller.add_new_nodes_to_cluster()
 
@@ -431,7 +440,7 @@ class TestClusterDeploymentController(TestCase):
 
         senza_mock = MagicMock()
         senza_mock.get_stack_instances.return_value = NEW_NODES
-        self.__controller.set_senza_wrapper(senza_mock)
+        self.__controller.set_deployment_service(senza_mock)
 
         self.__controller.add_new_nodes_to_cluster()
 
@@ -461,7 +470,7 @@ class TestClusterDeploymentController(TestCase):
 
         senza_mock = MagicMock()
         senza_mock.get_stack_instances.return_value = NEW_NODES
-        self.__controller.set_senza_wrapper(senza_mock)
+        self.__controller.set_deployment_service(senza_mock)
         self.__controller.set_add_node_timeout(0)
 
         with self.assertRaisesRegex(Exception, 'Timeout while adding new nodes to cluster'):
@@ -510,7 +519,7 @@ class TestClusterDeploymentController(TestCase):
             urls.append(url)
         senza_mock = MagicMock()
         senza_mock.get_stack_instances.return_value = OLD_NODES
-        self.__controller.set_senza_wrapper(senza_mock)
+        self.__controller.set_deployment_service(senza_mock)
 
         self.__controller.delete_old_nodes_from_cluster()
         called_urls = list(map(lambda x: x[0][0].get_full_url(), urlopen_mock.call_args_list))
@@ -522,7 +531,7 @@ class TestClusterDeploymentController(TestCase):
         urllib.request.urlopen = urlopen_mock
         senza_mock = MagicMock()
         senza_mock.get_stack_instances.return_value = OLD_NODES
-        self.__controller.set_senza_wrapper(senza_mock)
+        self.__controller.set_deployment_service(senza_mock)
         with self.assertRaisesRegex(Exception, 'Shard \[shard[0-9]\] of collection \[[a-z0-9\-]+\] has no active '
                                                'leader'):
             self.__controller.delete_old_nodes_from_cluster()
@@ -532,27 +541,10 @@ class TestClusterDeploymentController(TestCase):
         urllib.request.urlopen = urlopen_mock
         senza_mock = MagicMock()
         senza_mock.get_stack_instances.return_value = OLD_NODES
-        self.__controller.set_senza_wrapper(senza_mock)
+        self.__controller.set_deployment_service(senza_mock)
         with self.assertRaisesRegex(Exception, 'Shard \[shard[0-9]\] of collection \[[a-z0-9\-]+\] has not enough '
                                                'active nodes: \[[1]\]'):
             self.__controller.delete_old_nodes_from_cluster()
-
-    def test_should_return_current_cluster_state(self):
-        urllib.request.urlopen = MagicMock(side_effect=self.__side_effect_return_cluster_state_old_nodes)
-        cluster_state = self.__controller.get_cluster_state()
-        self.assertEqual(CLUSTER_OLD_NODES, cluster_state, 'Cluster state does not match test cluster')
-
-    def test_should_return_failure_because_of_unknown_status_code_from_solr_when_requesting_cluster_state(self):
-        urllib.request.urlopen = MagicMock(side_effect=self.__side_effect_unknown_http_code)
-        with self.assertRaisesRegex(Exception, 'Received unexpected status code from Solr: \[{}\]'
-                                               .format(str(HTTP_CODE_UNKNOWN))):
-            self.__controller.get_cluster_state()
-
-    def test_should_return_failure_because_of_unknown_http_error_when_requesting_cluster_state(self):
-        urllib.request.urlopen = MagicMock(side_effect=self.__side_effect_unknown_http_error)
-        with self.assertRaisesRegex(Exception, 'Failed sending request to Solr \[{}\]: HTTP Error {}: .*'
-                                               .format(API_URL + '[^\]]+', str(HTTP_CODE_UNKNOWN_ERROR))):
-            self.__controller.get_cluster_state()
 
     def test_should_return_failure_because_of_inactive_shard_in_cluster(self):
         collection = list(CLUSTER_INACTIVE_SHARD_NO_REPLICAS['cluster']['collections'].keys())[0]
@@ -571,13 +563,14 @@ class TestClusterDeploymentController(TestCase):
     def test_should_return_green_when_only_blue_stack_is_running_and_passive_stack_version_is_requested(self):
 
         active_version = 'blue'
-        senza_mock = SenzaWrapper(CONFIG)
+        senza_mock = SenzaDeploymentService(CONFIG)
         senza_passive_versions_mock = senza_mock.get_passive_stack_version = MagicMock(return_value=None)
         senza_active_versions_mock = senza_mock.get_active_stack_version = MagicMock(return_value=active_version)
 
-        controller = ClusterDeploymentController(base_url=BASE_URL, stack_name=STACK_NAME,
-                                                 image_version=IMAGE_VERSION, oauth_token=OAUTH_TOKEN,
-                                                 senza_wrapper=senza_mock)
+        controller = ClusterDeploymentController(stack_name=STACK_NAME,
+                                                 image_version=IMAGE_VERSION,
+                                                 solr_collections_service=self.__solr_collections_service,
+                                                 deployment_service=senza_mock)
 
         self.assertEquals('green', controller.get_passive_stack_version(), 'Wrong stack version')
 
@@ -588,7 +581,7 @@ class TestClusterDeploymentController(TestCase):
         instances = [
             NEW_NODES
         ]
-        senza_mock = SenzaWrapper(CONFIG)
+        senza_mock = SenzaDeploymentService(CONFIG)
         senza_create_mock = senza_mock.create_stack = MagicMock()
         senza_passive_versions_mock = senza_mock.get_passive_stack_version = MagicMock(return_value='test-version')
         senza_instances_mock = senza_mock.get_stack_instances = MagicMock(side_effect=instances)
@@ -598,9 +591,10 @@ class TestClusterDeploymentController(TestCase):
         urlopen_mock = MagicMock(side_effect=http_calls)
         urllib.request.urlopen = urlopen_mock
 
-        controller = ClusterDeploymentController(base_url=BASE_URL, stack_name=STACK_NAME,
-                                                 image_version=IMAGE_VERSION, oauth_token=OAUTH_TOKEN,
-                                                 senza_wrapper=senza_mock)
+        controller = ClusterDeploymentController(stack_name=STACK_NAME,
+                                                 image_version=IMAGE_VERSION,
+                                                 solr_collections_service=self.__solr_collections_service,
+                                                 deployment_service=senza_mock)
         controller.create_cluster()
 
         senza_passive_versions_mock.assert_called_with(STACK_NAME)
@@ -612,7 +606,7 @@ class TestClusterDeploymentController(TestCase):
         instances = [
             NEW_NODES
         ]
-        senza_mock = SenzaWrapper(CONFIG)
+        senza_mock = SenzaDeploymentService(CONFIG)
         senza_create_mock = senza_mock.create_stack = MagicMock()
         senza_passive_versions_mock = senza_mock.get_passive_stack_version = MagicMock(return_value='test-version')
         senza_instances_mock = senza_mock.get_stack_instances = MagicMock(side_effect=instances)
@@ -626,9 +620,10 @@ class TestClusterDeploymentController(TestCase):
         urlopen_mock = MagicMock(side_effect=http_calls)
         urllib.request.urlopen = urlopen_mock
 
-        controller = ClusterDeploymentController(base_url=BASE_URL, stack_name=STACK_NAME,
-                                                 image_version=IMAGE_VERSION, oauth_token=OAUTH_TOKEN,
-                                                 senza_wrapper=senza_mock)
+        controller = ClusterDeploymentController(stack_name=STACK_NAME,
+                                                 image_version=IMAGE_VERSION,
+                                                 solr_collections_service=self.__solr_collections_service,
+                                                 deployment_service=senza_mock)
         controller.set_create_cluster_retry_wait(0)
         controller.set_create_cluster_timeout(1)
         controller.create_cluster()
@@ -642,7 +637,7 @@ class TestClusterDeploymentController(TestCase):
         instances = [
             NEW_NODES
         ]
-        senza_mock = SenzaWrapper(CONFIG)
+        senza_mock = SenzaDeploymentService(CONFIG)
         senza_create_mock = senza_mock.create_stack = MagicMock()
         senza_passive_versions_mock = senza_mock.get_passive_stack_version = MagicMock(return_value='test-version')
         senza_instances_mock = senza_mock.get_stack_instances = MagicMock(side_effect=instances)
@@ -655,9 +650,10 @@ class TestClusterDeploymentController(TestCase):
         urlopen_mock = MagicMock(side_effect=http_calls)
         urllib.request.urlopen = urlopen_mock
 
-        controller = ClusterDeploymentController(base_url=BASE_URL, stack_name=STACK_NAME,
-                                                 image_version=IMAGE_VERSION, oauth_token=OAUTH_TOKEN,
-                                                 senza_wrapper=senza_mock)
+        controller = ClusterDeploymentController(stack_name=STACK_NAME,
+                                                 image_version=IMAGE_VERSION,
+                                                 solr_collections_service=self.__solr_collections_service,
+                                                 deployment_service=senza_mock)
         controller.set_create_cluster_retry_wait(0)
         controller.set_create_cluster_timeout(0)
         with self.assertRaisesRegex(Exception, 'Timeout while creating new cluster, not all new nodes have been '
@@ -670,26 +666,28 @@ class TestClusterDeploymentController(TestCase):
         senza_instances_mock.assert_called_once_with(STACK_NAME, 'test-version')
 
     def test_should_not_raise_any_exception_when_deleting_a_cluster(self):
-        senza_mock = SenzaWrapper(CONFIG)
+        senza_mock = SenzaDeploymentService(CONFIG)
         senza_delete_mock = senza_mock.delete_stack_version = MagicMock()
         senza_passive_versions_mock = senza_mock.get_passive_stack_version = MagicMock(return_value='test-version')
 
-        controller = ClusterDeploymentController(base_url=BASE_URL, stack_name=STACK_NAME,
-                                                 image_version=IMAGE_VERSION, oauth_token=OAUTH_TOKEN,
-                                                 senza_wrapper=senza_mock)
+        controller = ClusterDeploymentController(stack_name=STACK_NAME,
+                                                 image_version=IMAGE_VERSION,
+                                                 solr_collections_service=self.__solr_collections_service,
+                                                 deployment_service=senza_mock)
         controller.delete_cluster()
 
         senza_passive_versions_mock.assert_called_once_with(STACK_NAME)
         senza_delete_mock.assert_called_once_with(STACK_NAME, 'test-version')
 
     def test_should_not_raise_any_exception_when_switching_to_another_cluster_version(self):
-        senza_mock = SenzaWrapper(CONFIG)
+        senza_mock = SenzaDeploymentService(CONFIG)
         senza_switch_mock = senza_mock.switch_traffic = MagicMock()
         senza_passive_versions_mock = senza_mock.get_passive_stack_version = MagicMock(return_value='test-version')
 
-        controller = ClusterDeploymentController(base_url=BASE_URL, stack_name=STACK_NAME,
-                                                 image_version=IMAGE_VERSION, oauth_token=OAUTH_TOKEN,
-                                                 senza_wrapper=senza_mock)
+        controller = ClusterDeploymentController(stack_name=STACK_NAME,
+                                                 image_version=IMAGE_VERSION,
+                                                 solr_collections_service=self.__solr_collections_service,
+                                                 deployment_service=senza_mock)
         controller.switch_traffic()
 
         senza_passive_versions_mock.assert_called_once_with(STACK_NAME)
@@ -702,16 +700,17 @@ class TestClusterDeploymentController(TestCase):
             NEW_NODES,
             OLD_NODES
         ]
-        senza_mock = SenzaWrapper(CONFIG)
+        senza_mock = SenzaDeploymentService(CONFIG)
         senza_create_mock = senza_mock.create_stack = MagicMock()
         senza_passive_versions_mock = senza_mock.get_passive_stack_version = MagicMock(return_value=test_version)
         senza_switch_mock = senza_mock.switch_traffic = MagicMock(return_value=True)
         senza_delete_mock = senza_mock.delete_stack_version = MagicMock()
         senza_instances_mock = senza_mock.get_stack_instances = MagicMock(side_effect=instances)
 
-        controller = ClusterDeploymentController(base_url=BASE_URL, stack_name=STACK_NAME,
-                                                 image_version=IMAGE_VERSION, oauth_token=OAUTH_TOKEN,
-                                                 senza_wrapper=senza_mock)
+        controller = ClusterDeploymentController(stack_name=STACK_NAME,
+                                                 image_version=IMAGE_VERSION,
+                                                 solr_collections_service=self.__solr_collections_service,
+                                                 deployment_service=senza_mock)
 
         controller.set_leader_check_retry_count(1)
         controller.set_leader_check_retry_wait(0)
