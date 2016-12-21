@@ -35,7 +35,7 @@ class TestSenzaDeploymentService(TestCase):
         subprocess.call = delete_mock
         subprocess.check_output = list_mock
 
-        self.__deployment_service.delete_stack_version('test', 'test')
+        self.__deployment_service.delete_node_set('test', 'test')
 
         delete_mock.assert_called_once_with(['senza', 'delete', '--region', 'eu-west-1', 'test', 'test'])
         list_mock.assert_called_with(['senza', 'list', '--region', 'eu-west-1', '--output', 'json', 'test', 'test'])
@@ -49,7 +49,7 @@ class TestSenzaDeploymentService(TestCase):
         instances_mock = MagicMock(return_value=bytes(json.dumps(instances), encoding='utf-8'))
         subprocess.check_output = instances_mock
 
-        result = self.__deployment_service.get_stack_instances('test-stack', 'test-version')
+        result = self.__deployment_service.get_nodes_of_node_set('test-stack', 'test-version')
         self.assertListEqual(['0.0.0.0', '1.1.1.1'], result, "Getting stack instances failed.")
         instances_mock.assert_called_once_with([
             'senza', 'instances', '--region', 'eu-west-1', '--output', 'json', 'test-stack', 'test-version'
@@ -74,7 +74,7 @@ class TestSenzaDeploymentService(TestCase):
         versions_mock = MagicMock(return_value=bytes(json.dumps(stack_versions), encoding='utf-8'))
         subprocess.check_output = versions_mock
 
-        result = self.__deployment_service.get_active_stack_version('test')
+        result = self.__deployment_service.get_active_node_set('test')
         self.assertEquals(active_version, result, 'Result is not the active stack version')
         versions_mock.assert_called_once_with([
             'senza', 'traffic', '--region', 'eu-west-1', '--output', 'json', 'test'
@@ -93,7 +93,7 @@ class TestSenzaDeploymentService(TestCase):
         versions_mock = MagicMock(return_value=bytes(json.dumps(stack_versions), encoding='utf-8'))
         subprocess.check_output = versions_mock
 
-        result = self.__deployment_service.get_active_stack_version('test')
+        result = self.__deployment_service.get_active_node_set('test')
         self.assertEquals(active_version, result, 'Result is not the active stack version')
         versions_mock.assert_called_once_with([
             'senza', 'traffic', '--region', 'eu-west-1', '--output', 'json', 'test'
@@ -107,7 +107,7 @@ class TestSenzaDeploymentService(TestCase):
         versions_mock = MagicMock(return_value=bytes(json.dumps(stack_versions), encoding='utf-8'))
         subprocess.check_output = versions_mock
 
-        result = self.__deployment_service.get_active_stack_version('test')
+        result = self.__deployment_service.get_active_node_set('test')
         self.assertIsNone(result, 'Active stack version returned although there is none')
         versions_mock.assert_called_once_with([
             'senza', 'traffic', '--region', 'eu-west-1', '--output', 'json', 'test'
@@ -133,7 +133,7 @@ class TestSenzaDeploymentService(TestCase):
         versions_mock = MagicMock(return_value=bytes(json.dumps(stack_versions), encoding='utf-8'))
         subprocess.check_output = versions_mock
 
-        result = self.__deployment_service.get_passive_stack_version('test')
+        result = self.__deployment_service.get_passive_node_set('test')
         self.assertEquals(passive_version, result, 'Result is not the passive stack version')
         versions_mock.assert_called_once_with([
             'senza', 'traffic', '--region', 'eu-west-1', '--output', 'json', 'test'
@@ -152,7 +152,7 @@ class TestSenzaDeploymentService(TestCase):
         versions_mock = MagicMock(return_value=bytes(json.dumps(stack_versions), encoding='utf-8'))
         subprocess.check_output = versions_mock
 
-        result = self.__deployment_service.get_passive_stack_version('test')
+        result = self.__deployment_service.get_passive_node_set('test')
         self.assertEquals(passive_version, result, 'Result is not the passive stack version')
         versions_mock.assert_called_once_with([
             'senza', 'traffic', '--region', 'eu-west-1', '--output', 'json', 'test'
@@ -171,7 +171,7 @@ class TestSenzaDeploymentService(TestCase):
         versions_mock = MagicMock(return_value=bytes(json.dumps(stack_versions), encoding='utf-8'))
         subprocess.check_output = versions_mock
 
-        result = self.__deployment_service.get_passive_stack_version('test')
+        result = self.__deployment_service.get_passive_node_set('test')
         self.assertIsNone(result, 'Passive stack version returned although there is none')
         versions_mock.assert_called_once_with([
             'senza', 'traffic', '--region', 'eu-west-1', '--output', 'json', 'test'
@@ -378,7 +378,7 @@ class TestSenzaDeploymentService(TestCase):
         events_mock = MagicMock(return_value=bytes(json.dumps(events), encoding='utf-8'))
         subprocess.check_output = events_mock
 
-        self.__deployment_service.create_stack(stack_name, stack_version, image_version)
+        self.__deployment_service.create_node_set(stack_name, stack_version, image_version)
 
         create_mock.assert_called_once_with([
             'senza', 'create', '--region', 'eu-west-1', '--disable-rollback', TEST_CONFIG, stack_version,
@@ -419,7 +419,7 @@ class TestSenzaDeploymentService(TestCase):
         events_mock = MagicMock(side_effect=side_effect_events)
         subprocess.check_output = events_mock
 
-        self.__deployment_service.create_stack(stack_name, stack_version, image_version)
+        self.__deployment_service.create_node_set(stack_name, stack_version, image_version)
 
         create_mock.assert_called_once_with([
             'senza', 'create', '--region', 'eu-west-1', '--disable-rollback', TEST_CONFIG, stack_version,
@@ -442,7 +442,7 @@ class TestSenzaDeploymentService(TestCase):
         with self.assertRaisesRegex(Exception, 'Failed to create new cluster with error code \[{}\]'
                                                .format(str(error_code))):
 
-            self.__deployment_service.create_stack(stack_name, stack_version, image_version)
+            self.__deployment_service.create_node_set(stack_name, stack_version, image_version)
 
         create_mock.assert_called_once_with([
             'senza', 'create', '--region', 'eu-west-1', '--disable-rollback', TEST_CONFIG, stack_version,
@@ -472,7 +472,7 @@ class TestSenzaDeploymentService(TestCase):
         with self.assertRaisesRegex(Exception, 'Creation of stack \[{}\] version \[{}\] with image version \[{}\] '
                                                'failed'.format(stack_name, stack_version, image_version)):
 
-            self.__deployment_service.create_stack(stack_name, stack_version, image_version)
+            self.__deployment_service.create_node_set(stack_name, stack_version, image_version)
 
         create_mock.assert_called_once_with([
             'senza', 'create', '--region', 'eu-west-1', '--disable-rollback', TEST_CONFIG, stack_version,
@@ -498,7 +498,7 @@ class TestSenzaDeploymentService(TestCase):
         subprocess.check_output = events_mock
 
         with self.assertRaisesRegex(Exception, 'Timeout while creating new stack version'):
-            deployment_service.create_stack(stack_name, stack_version, image_version)
+            deployment_service.create_node_set(stack_name, stack_version, image_version)
 
         create_mock.assert_called_once_with([
             'senza', 'create', '--region', 'eu-west-1', '--disable-rollback', TEST_CONFIG, stack_version,
@@ -533,7 +533,7 @@ class TestSenzaDeploymentService(TestCase):
         events_mock = MagicMock(return_value=bytes(json.dumps(events), encoding='utf-8'))
         subprocess.check_output = events_mock
 
-        deployment_service.create_stack(stack_name, stack_version, image_version)
+        deployment_service.create_node_set(stack_name, stack_version, image_version)
 
         create_mock.assert_called_once_with([
             'senza', 'create', '--region', 'eu-west-1', '--disable-rollback', TEST_CONFIG, stack_version,

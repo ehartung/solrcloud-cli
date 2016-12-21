@@ -9,6 +9,7 @@ from solrcloud_cli.controllers.cluster_bootstrap_controller import ClusterBootst
 from solrcloud_cli.controllers.cluster_delete_controller import ClusterDeleteController
 from solrcloud_cli.controllers.cluster_deployment_controller import ClusterDeploymentController
 from solrcloud_cli.services.senza_deployment_service import SenzaDeploymentService
+from solrcloud_cli.services.kubectl_deployment_service import KubectlDeploymentService
 from solrcloud_cli.services.solr_collections_service import SolrCollectionsService
 
 from argparse import ArgumentParser
@@ -29,6 +30,8 @@ def build_args_parser():
     parser.add_argument('-f', '--config-file', help='Path to config file. (default: %s)' % DEFAULT_CONF_FILE,
                         dest='config')
     parser.add_argument('--region', help='AWS region in which SolrCloud should be installed')
+    parser.add_argument('-d', '--deployment-mode', default='stups',
+                        help='Deployment mode, supported modes are stups, k8s')
     return parser
 
 
@@ -47,7 +50,14 @@ def solrcloud_cli(cli_args):
     with open(args.config, 'rb') as fd:
         settings = yaml.load(fd)
 
-    deployment_service = SenzaDeploymentService(args.senza_configuration)
+    if args.deployment_mode == 'stups':
+        deployment_service = SenzaDeploymentService(args.senza_configuration)
+    elif args.deployment_mode == 'k8s':
+        deployment_service = KubectlDeploymentService()
+    else:
+        print('Unknown deployment mode: [{}]. Supported modes are stups, k8s.', args.command)
+        parser.print_usage()
+        return
 
     solr_collections_service = SolrCollectionsService(base_url=settings['SolrBaseUrl'],
                                                       oauth_token=args.token,

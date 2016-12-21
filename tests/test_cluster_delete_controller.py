@@ -135,7 +135,7 @@ class TestClusterDeleteController(TestCase):
 
     def test_should_forward_method_call_to_senza_when_deleting_a_cluster_version(self):
         senza_mock = SenzaDeploymentService(CONFIG)
-        senza_delete_mock = senza_mock.delete_stack_version = MagicMock()
+        senza_delete_mock = senza_mock.delete_node_set = MagicMock()
 
         controller = ClusterDeleteController(stack_name=STACK_NAME,
                                              solr_collections_service=self.__solr_collections_service,
@@ -181,9 +181,9 @@ class TestClusterDeleteController(TestCase):
     def test_should_not_raise_exceptions_when_deleting_a_complete_cluster(self):
         versions = [{'version': 'test-version1'}, {'version': 'test-version2'}]
         senza_mock = SenzaDeploymentService(CONFIG)
-        senza_versions_mock = senza_mock.get_all_stack_versions = MagicMock(return_value=versions)
+        senza_versions_mock = senza_mock.get_all_node_sets = MagicMock(return_value=versions)
         senza_switch_mock = senza_mock.switch_traffic = MagicMock(return_value=True)
-        senza_delete_mock = senza_mock.delete_stack_version = MagicMock()
+        senza_delete_mock = senza_mock.delete_node_set = MagicMock()
         controller = ClusterDeleteController(stack_name=STACK_NAME,
                                              solr_collections_service=self.__solr_collections_service,
                                              deployment_service=senza_mock)
@@ -213,7 +213,7 @@ class TestClusterDeleteController(TestCase):
     def test_should_raise_exception_when_deleting_a_complete_cluster_without_version(self):
         versions = []
         senza_mock = SenzaDeploymentService(CONFIG)
-        senza_versions_mock = senza_mock.get_all_stack_versions = MagicMock(return_value=versions)
+        senza_versions_mock = senza_mock.get_all_node_sets = MagicMock(return_value=versions)
         controller = ClusterDeleteController(stack_name=STACK_NAME,
                                              solr_collections_service=self.__solr_collections_service,
                                              deployment_service=senza_mock)

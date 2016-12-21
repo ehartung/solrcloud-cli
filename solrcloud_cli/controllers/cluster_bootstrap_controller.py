@@ -46,7 +46,7 @@ class ClusterBootstrapController(ClusterController):
         self._solr_collections_service.set_retry_wait(retry_wait)
 
     def create_cluster(self):
-        self._deployment_service.create_stack(self._stack_name, INITIAL_STACK_VERSION, self.__image_version)
+        self._deployment_service.create_node_set(self._stack_name, INITIAL_STACK_VERSION, self.__image_version)
 
     def switch_on_traffic(self):
         self._deployment_service.switch_traffic(self._stack_name, INITIAL_STACK_VERSION, 100)

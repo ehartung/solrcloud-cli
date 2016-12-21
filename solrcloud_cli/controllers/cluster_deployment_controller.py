@@ -87,14 +87,15 @@ class ClusterDeploymentController(ClusterController):
         self._solr_collections_service.set_create_cluster_timeout(timeout)
 
     def get_passive_stack_version(self):
-        passive_stack_version = self._deployment_service.get_passive_stack_version(self._stack_name)
+        passive_stack_version = self._deployment_service.get_passive_node_set(self._stack_name)
         if not passive_stack_version:
-            current_version = self._deployment_service.get_active_stack_version(self._stack_name)
+            current_version = self._deployment_service.get_active_node_set(self._stack_name)
             passive_stack_version = list(filter(lambda x: x != current_version, BLUE_GREEN_DEPLOYMENT_VERSIONS))[0]
         return passive_stack_version
 
     def create_cluster(self):
-        self._deployment_service.create_stack(self._stack_name, self.get_passive_stack_version(), self.__image_version)
+        self._deployment_service.create_node_set(self._stack_name, self.get_passive_stack_version(),
+                                                 self.__image_version)
 
         # Wait for all nodes being registered in cluster
         nodes = self.get_cluster_nodes(self._stack_name, self.get_passive_stack_version())
@@ -118,7 +119,7 @@ class ClusterDeploymentController(ClusterController):
 
     def delete_cluster(self):
         old_stack_version = self.get_passive_stack_version()
-        self._deployment_service.delete_stack_version(self._stack_name, old_stack_version)
+        self._deployment_service.delete_node_set(self._stack_name, old_stack_version)
 
     def add_new_nodes_to_cluster(self):
         nodes = self.get_cluster_nodes(self._stack_name, self.get_passive_stack_version())
@@ -192,7 +193,7 @@ class ClusterDeploymentController(ClusterController):
         return self._solr_collections_service.delete_replica_from_cluster(collection, shard, replica)
 
     def get_cluster_nodes(self, stack_name, stack_version):
-        return sorted(self._deployment_service.get_stack_instances(stack_name, stack_version))
+        return sorted(self._deployment_service.get_nodes_of_node_set(stack_name, stack_version))
 
     def switch_traffic(self):
         self._deployment_service.switch_traffic(self._stack_name, self.get_passive_stack_version(), 100)

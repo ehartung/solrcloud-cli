@@ -399,7 +399,7 @@ class TestClusterDeploymentController(TestCase):
             urls.append(url)
 
         senza_mock = MagicMock()
-        senza_mock.get_stack_instances.return_value = NEW_NODES
+        senza_mock.get_nodes_of_node_set.return_value = NEW_NODES
         self.__controller.set_deployment_service(senza_mock)
 
         self.__controller.add_new_nodes_to_cluster()
@@ -411,7 +411,7 @@ class TestClusterDeploymentController(TestCase):
     def test_should_return_error_because_of_not_enough_nodes_for_cluster_layout(self):
         urllib.request.urlopen = MagicMock(side_effect=self.__side_effect_return_cluster_state_old_nodes)
         senza_mock = MagicMock()
-        senza_mock.get_stack_instances.return_value = NOT_ENOUGH_NODES
+        senza_mock.get_nodes_of_node_set.return_value = NOT_ENOUGH_NODES
         self.__controller.set_deployment_service(senza_mock)
         with self.assertRaises(Exception, msg='Not enough instances for current cluster layout: [2]<[3]'):
             self.__controller.add_new_nodes_to_cluster()
@@ -439,7 +439,7 @@ class TestClusterDeploymentController(TestCase):
             urls.append(url)
 
         senza_mock = MagicMock()
-        senza_mock.get_stack_instances.return_value = NEW_NODES
+        senza_mock.get_nodes_of_node_set.return_value = NEW_NODES
         self.__controller.set_deployment_service(senza_mock)
 
         self.__controller.add_new_nodes_to_cluster()
@@ -469,7 +469,7 @@ class TestClusterDeploymentController(TestCase):
             urls.append(url)
 
         senza_mock = MagicMock()
-        senza_mock.get_stack_instances.return_value = NEW_NODES
+        senza_mock.get_nodes_of_node_set.return_value = NEW_NODES
         self.__controller.set_deployment_service(senza_mock)
         self.__controller.set_add_node_timeout(0)
 
@@ -518,7 +518,7 @@ class TestClusterDeploymentController(TestCase):
             url += '&replica=' + replica
             urls.append(url)
         senza_mock = MagicMock()
-        senza_mock.get_stack_instances.return_value = OLD_NODES
+        senza_mock.get_nodes_of_node_set.return_value = OLD_NODES
         self.__controller.set_deployment_service(senza_mock)
 
         self.__controller.delete_old_nodes_from_cluster()
@@ -530,7 +530,7 @@ class TestClusterDeploymentController(TestCase):
         urlopen_mock = MagicMock(side_effect=self.__side_effect_return_cluster_state_no_leader)
         urllib.request.urlopen = urlopen_mock
         senza_mock = MagicMock()
-        senza_mock.get_stack_instances.return_value = OLD_NODES
+        senza_mock.get_nodes_of_node_set.return_value = OLD_NODES
         self.__controller.set_deployment_service(senza_mock)
         with self.assertRaisesRegex(Exception, 'Shard \[shard[0-9]\] of collection \[[a-z0-9\-]+\] has no active '
                                                'leader'):
@@ -540,7 +540,7 @@ class TestClusterDeploymentController(TestCase):
         urlopen_mock = MagicMock(side_effect=self.__side_effect_return_cluster_state_only_one_active_replica)
         urllib.request.urlopen = urlopen_mock
         senza_mock = MagicMock()
-        senza_mock.get_stack_instances.return_value = OLD_NODES
+        senza_mock.get_nodes_of_node_set.return_value = OLD_NODES
         self.__controller.set_deployment_service(senza_mock)
         with self.assertRaisesRegex(Exception, 'Shard \[shard[0-9]\] of collection \[[a-z0-9\-]+\] has not enough '
                                                'active nodes: \[[1]\]'):
@@ -564,8 +564,8 @@ class TestClusterDeploymentController(TestCase):
 
         active_version = 'blue'
         senza_mock = SenzaDeploymentService(CONFIG)
-        senza_passive_versions_mock = senza_mock.get_passive_stack_version = MagicMock(return_value=None)
-        senza_active_versions_mock = senza_mock.get_active_stack_version = MagicMock(return_value=active_version)
+        senza_passive_versions_mock = senza_mock.get_passive_node_set = MagicMock(return_value=None)
+        senza_active_versions_mock = senza_mock.get_active_node_set = MagicMock(return_value=active_version)
 
         controller = ClusterDeploymentController(stack_name=STACK_NAME,
                                                  image_version=IMAGE_VERSION,
@@ -582,9 +582,9 @@ class TestClusterDeploymentController(TestCase):
             NEW_NODES
         ]
         senza_mock = SenzaDeploymentService(CONFIG)
-        senza_create_mock = senza_mock.create_stack = MagicMock()
-        senza_passive_versions_mock = senza_mock.get_passive_stack_version = MagicMock(return_value='test-version')
-        senza_instances_mock = senza_mock.get_stack_instances = MagicMock(side_effect=instances)
+        senza_create_mock = senza_mock.create_node_set = MagicMock()
+        senza_passive_versions_mock = senza_mock.get_passive_node_set = MagicMock(return_value='test-version')
+        senza_instances_mock = senza_mock.get_nodes_of_node_set = MagicMock(side_effect=instances)
 
         http_calls = self.__side_effect_return_cluster_state_all_registered_nodes
 
@@ -607,9 +607,9 @@ class TestClusterDeploymentController(TestCase):
             NEW_NODES
         ]
         senza_mock = SenzaDeploymentService(CONFIG)
-        senza_create_mock = senza_mock.create_stack = MagicMock()
-        senza_passive_versions_mock = senza_mock.get_passive_stack_version = MagicMock(return_value='test-version')
-        senza_instances_mock = senza_mock.get_stack_instances = MagicMock(side_effect=instances)
+        senza_create_mock = senza_mock.create_node_set = MagicMock()
+        senza_passive_versions_mock = senza_mock.get_passive_node_set = MagicMock(return_value='test-version')
+        senza_instances_mock = senza_mock.get_nodes_of_node_set = MagicMock(side_effect=instances)
 
         http_calls = [
             self.__side_effect_return_cluster_state_old_nodes(None),
@@ -638,9 +638,9 @@ class TestClusterDeploymentController(TestCase):
             NEW_NODES
         ]
         senza_mock = SenzaDeploymentService(CONFIG)
-        senza_create_mock = senza_mock.create_stack = MagicMock()
-        senza_passive_versions_mock = senza_mock.get_passive_stack_version = MagicMock(return_value='test-version')
-        senza_instances_mock = senza_mock.get_stack_instances = MagicMock(side_effect=instances)
+        senza_create_mock = senza_mock.create_node_set = MagicMock()
+        senza_passive_versions_mock = senza_mock.get_passive_node_set = MagicMock(return_value='test-version')
+        senza_instances_mock = senza_mock.get_nodes_of_node_set = MagicMock(side_effect=instances)
 
         http_calls = [
             self.__side_effect_return_cluster_state_old_nodes(None),
@@ -667,8 +667,8 @@ class TestClusterDeploymentController(TestCase):
 
     def test_should_not_raise_any_exception_when_deleting_a_cluster(self):
         senza_mock = SenzaDeploymentService(CONFIG)
-        senza_delete_mock = senza_mock.delete_stack_version = MagicMock()
-        senza_passive_versions_mock = senza_mock.get_passive_stack_version = MagicMock(return_value='test-version')
+        senza_delete_mock = senza_mock.delete_node_set = MagicMock()
+        senza_passive_versions_mock = senza_mock.get_passive_node_set = MagicMock(return_value='test-version')
 
         controller = ClusterDeploymentController(stack_name=STACK_NAME,
                                                  image_version=IMAGE_VERSION,
@@ -682,7 +682,7 @@ class TestClusterDeploymentController(TestCase):
     def test_should_not_raise_any_exception_when_switching_to_another_cluster_version(self):
         senza_mock = SenzaDeploymentService(CONFIG)
         senza_switch_mock = senza_mock.switch_traffic = MagicMock()
-        senza_passive_versions_mock = senza_mock.get_passive_stack_version = MagicMock(return_value='test-version')
+        senza_passive_versions_mock = senza_mock.get_passive_node_set = MagicMock(return_value='test-version')
 
         controller = ClusterDeploymentController(stack_name=STACK_NAME,
                                                  image_version=IMAGE_VERSION,
@@ -701,11 +701,11 @@ class TestClusterDeploymentController(TestCase):
             OLD_NODES
         ]
         senza_mock = SenzaDeploymentService(CONFIG)
-        senza_create_mock = senza_mock.create_stack = MagicMock()
-        senza_passive_versions_mock = senza_mock.get_passive_stack_version = MagicMock(return_value=test_version)
+        senza_create_mock = senza_mock.create_node_set = MagicMock()
+        senza_passive_versions_mock = senza_mock.get_passive_node_set = MagicMock(return_value=test_version)
         senza_switch_mock = senza_mock.switch_traffic = MagicMock(return_value=True)
-        senza_delete_mock = senza_mock.delete_stack_version = MagicMock()
-        senza_instances_mock = senza_mock.get_stack_instances = MagicMock(side_effect=instances)
+        senza_delete_mock = senza_mock.delete_node_set = MagicMock()
+        senza_instances_mock = senza_mock.get_nodes_of_node_set = MagicMock(side_effect=instances)
 
         controller = ClusterDeploymentController(stack_name=STACK_NAME,
                                                  image_version=IMAGE_VERSION,

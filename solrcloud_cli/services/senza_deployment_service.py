@@ -50,58 +50,58 @@ class SenzaDeploymentService(DeploymentService):
         if key and value:
             self.__parameters[key] = value
 
-    def delete_stack_version(self, stack_name: str, stack_version: str):
+    def delete_node_set(self, name: str, version: str):
         # Delete stack version
-        logging.info("Deleting [{0}] on [{1}].".format(stack_name, stack_version))
-        self.__execute_senza('delete', stack_name, stack_version)
+        logging.info("Deleting [{0}] on [{1}].".format(name, version))
+        self.__execute_senza('delete', name, version)
 
         # Wait until deletion is complete
         delete_complete = False
         while not delete_complete:
-            list_output = self.__execute_senza('list', stack_name, stack_version)
+            list_output = self.__execute_senza('list', name, version)
             if not list_output:
                 delete_complete = True
-                logging.info("[{0}] on [{1}] has been deleted.".format(stack_name, stack_version))
+                logging.info("[{0}] on [{1}] has been deleted.".format(name, version))
             time.sleep(self.__retry_wait)
             sys.stdout.write('.')
             sys.stdout.flush()
 
-    def get_stack_instances(self, stack_name: str, stack_version: str):
-        instances = self.__execute_senza('instances', stack_name, stack_version)
+    def get_nodes_of_node_set(self, name: str, version: str):
+        instances = self.__execute_senza('instances', name, version)
         return list(map(lambda x: x['private_ip'], instances))
 
-    def get_active_stack_version(self, stack_name: str):
-        active_versions = list(filter(lambda x: x['weight%'] == float(100), self.get_all_stack_versions(stack_name)))
+    def get_active_node_set(self, name: str):
+        active_versions = list(filter(lambda x: x['weight%'] == float(100), self.get_all_node_sets(name)))
         if active_versions:
             active_version = active_versions[0]['version']
         else:
             active_version = None
         return active_version
 
-    def get_passive_stack_version(self, stack_name: str):
-        passive_versions = list(filter(lambda x: x['weight%'] == float(0), self.get_all_stack_versions(stack_name)))
+    def get_passive_node_set(self, name: str):
+        passive_versions = list(filter(lambda x: x['weight%'] == float(0), self.get_all_node_sets(name)))
         if passive_versions:
             passive_version = passive_versions[0]['version']
         else:
             passive_version = None
         return passive_version
 
-    def get_all_stack_versions(self, stack_name: str):
-        return self.__execute_senza('traffic', stack_name)
+    def get_all_node_sets(self, name: str):
+        return self.__execute_senza('traffic', name)
 
-    def create_stack(self, stack_name: str, stack_version: str, image_version: str):
+    def create_node_set(self, name: str, version: str, image_version: str):
         senza_parameters = list()
         senza_parameters.append('ImageVersion=' + image_version)
         for key, value in self.__parameters.items():
             senza_parameters.append(key + '=' + str(value))
 
-        result = self.__execute_senza('create', '--disable-rollback', self.__config_file_name, stack_version,
+        result = self.__execute_senza('create', '--disable-rollback', self.__config_file_name, version,
                                       *senza_parameters)
         if result != 0:
             raise Exception('Failed to create new cluster with error code [{}]'.format(result))
         timer = 0
         while timer < self.__stack_creation_retry_timeout:
-            events = sorted(self.get_events(stack_name, stack_version), key=lambda k: k['event_time'])
+            events = sorted(self.get_events(name, version), key=lambda k: k['event_time'])
             if events:
                 last_event = events[-1]
                 if last_event['ResourceStatus'] == 'CREATE_COMPLETE' and \
@@ -110,7 +110,7 @@ class SenzaDeploymentService(DeploymentService):
                 elif last_event['ResourceStatus'] in ['CREATE_FAILED', 'ROLLBACK_IN_PROGRESS', 'DELETE_IN_PROGRESS',
                                                       'DELETE_COMPLETE', 'ROLLBACK_COMPLETE']:
                     raise Exception('Creation of stack [{}] version [{}] with image version [{}] failed'
-                                    .format(stack_name, stack_version, image_version))
+                                    .format(name, version, image_version))
 
             time.sleep(self.__stack_creation_retry_wait)
             timer += self.__stack_creation_retry_wait
@@ -119,23 +119,23 @@ class SenzaDeploymentService(DeploymentService):
         else:
             raise Exception('Timeout while creating new stack version')
 
-    def get_events(self, stack_name: str, stack_version: str):
-        return self.__execute_senza('events', stack_name, stack_version)
+    def get_events(self, name: str, version: str):
+        return self.__execute_senza('events', name, version)
 
-    def switch_traffic(self, stack_name: str, stack_version: str, weight: int):
-        traffic_output = self.__execute_senza('traffic', stack_name, stack_version, str(weight))
+    def switch_traffic(self, name: str, version: str, weight: int):
+        traffic_output = self.__execute_senza('traffic', name, version, str(weight))
         if traffic_output and isinstance(traffic_output, list):
             for traffic_element in traffic_output:
-                if (traffic_element['stack_name'] == stack_name and traffic_element['version'] == stack_version and
+                if (traffic_element['stack_name'] == name and traffic_element['version'] == version and
                         traffic_element['new_weight%'] != weight):
 
                     raise Exception('Switching of [{}]% traffic to stack [{}] version [{}] failed'
-                                    .format(weight, stack_name, stack_version))
-                elif (traffic_element['stack_name'] == stack_name and traffic_element['version'] == stack_version and
+                                    .format(weight, name, version))
+                elif (traffic_element['stack_name'] == name and traffic_element['version'] == version and
                         traffic_element['new_weight%'] == traffic_element['old_weight%']):
 
                     raise Exception('Traffic weight did not change, traffic for stack [{}] version [{}] is still at '
-                                    '[{}]%'.format(stack_name, stack_version, weight))
+                                    '[{}]%'.format(name, version, weight))
         elif traffic_output is None:
             return
         else:

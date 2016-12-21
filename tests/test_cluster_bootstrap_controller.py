@@ -162,7 +162,7 @@ class TestClusterBootstrapController(TestCase):
 
     def test_should_not_raise_any_exception_when_creating_a_new_cluster(self):
         senza_mock = SenzaDeploymentService(CONFIG)
-        senza_create_mock = senza_mock.create_stack = MagicMock()
+        senza_create_mock = senza_mock.create_node_set = MagicMock()
 
         controller = ClusterBootstrapController(stack_name=STACK_NAME,
                                                 sharding_level=SHARDING_LEVEL,
@@ -264,7 +264,7 @@ class TestClusterBootstrapController(TestCase):
 
     def test_should_not_raise_exceptions_when_executing_all_bootstrap_steps(self):
         senza_mock = SenzaDeploymentService(CONFIG)
-        senza_create_mock = senza_mock.create_stack = MagicMock()
+        senza_create_mock = senza_mock.create_node_set = MagicMock()
         senza_switch_mock = senza_mock.switch_traffic = MagicMock(return_value=True)
         os.listdir = MagicMock(side_effect=self.__side_effect_config_list)
         controller = ClusterBootstrapController(stack_name=STACK_NAME,
