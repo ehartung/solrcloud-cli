@@ -22,8 +22,8 @@ class ClusterDeleteController(ClusterController):
             raise Exception('No active stack version found')
         self.delete_all_collections_in_cluster()
         for version in stack_versions:
-            self.switch_off_traffic(version['version'])
-            self.delete_cluster_version(version['version'])
+            self.switch_off_traffic(version['name'])
+            self.delete_cluster_version(version['name'])
 
     def delete_cluster_version(self, stack_version: str):
         self._deployment_service.delete_node_set(self._stack_name, stack_version)

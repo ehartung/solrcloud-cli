@@ -41,157 +41,28 @@ class TestSenzaDeploymentService(TestCase):
         list_mock.assert_called_with(['senza', 'list', '--region', 'eu-west-1', '--output', 'json', 'test', 'test'])
         self.assertEquals(2, len(list_mock.call_args_list), 'Unexpected number of senza list calls')
 
-    def test_should_return_all_instances_of_one_stack_version(self):
+    def test_should_return_all_node_sets_for_one_stack(self):
+        traffic = [
+            {'stack_name': 'test-stack', 'version': 'test-version', 'weight%': '100.0'},
+        ]
         instances = [
-            {'stack_name': 'test-stack', 'stack_version': 'test-version', 'private_ip': '0.0.0.0'},
-            {'stack_name': 'test-stack', 'stack_version': 'test-version', 'private_ip': '1.1.1.1'}
+            {'stack_name': 'test-stack', 'version': 'test-version', 'private_ip': '0.0.0.0'},
+            {'stack_name': 'test-stack', 'version': 'test-version', 'private_ip': '1.1.1.1'}
         ]
-        instances_mock = MagicMock(return_value=bytes(json.dumps(instances), encoding='utf-8'))
-        subprocess.check_output = instances_mock
+        senza_side_effects = [
+            bytes(json.dumps(traffic), encoding='utf-8'),
+            bytes(json.dumps(instances), encoding='utf-8')
+        ]
+        senza_mock = MagicMock(side_effect=senza_side_effects)
+        subprocess.check_output = senza_mock
 
-        result = self.__deployment_service.get_nodes_of_node_set('test-stack', 'test-version')
-        self.assertListEqual(['0.0.0.0', '1.1.1.1'], result, "Getting stack instances failed.")
-        instances_mock.assert_called_once_with([
+        result = self.__deployment_service.get_all_node_sets('test-stack')
+        self.assertListEqual(['0.0.0.0', '1.1.1.1'], result[0]['nodes'], "Getting stack instances failed.")
+        senza_mock.assert_any_call([
+            'senza', 'traffic', '--region', 'eu-west-1', '--output', 'json', 'test-stack'
+        ])
+        senza_mock.assert_any_call([
             'senza', 'instances', '--region', 'eu-west-1', '--output', 'json', 'test-stack', 'test-version'
-        ])
-
-    def test_should_return_active_stack_version(self):
-        active_version = 'active'
-        passive_version = 'passive'
-        stack_versions = [
-            {
-                'identifier': 'test-' + passive_version,
-                'stack_name': 'test',
-                'version': passive_version,
-                'weight%': NO_TRAFFIC
-            },
-            {
-                'identifier': 'test-' + active_version,
-                'stack_name': 'test',
-                'version': active_version,
-                'weight%': ALL_TRAFFIC}
-        ]
-        versions_mock = MagicMock(return_value=bytes(json.dumps(stack_versions), encoding='utf-8'))
-        subprocess.check_output = versions_mock
-
-        result = self.__deployment_service.get_active_node_set('test')
-        self.assertEquals(active_version, result, 'Result is not the active stack version')
-        versions_mock.assert_called_once_with([
-            'senza', 'traffic', '--region', 'eu-west-1', '--output', 'json', 'test'
-        ])
-
-    def test_should_return_active_stack_version_when_only_one_version_exists(self):
-        active_version = 'active'
-        stack_versions = [
-            {
-                'identifier': 'test-' + active_version,
-                'stack_name': 'test',
-                'version': active_version,
-                'weight%': ALL_TRAFFIC
-            }
-        ]
-        versions_mock = MagicMock(return_value=bytes(json.dumps(stack_versions), encoding='utf-8'))
-        subprocess.check_output = versions_mock
-
-        result = self.__deployment_service.get_active_node_set('test')
-        self.assertEquals(active_version, result, 'Result is not the active stack version')
-        versions_mock.assert_called_once_with([
-            'senza', 'traffic', '--region', 'eu-west-1', '--output', 'json', 'test'
-        ])
-
-    def test_should_return_none_if_no_active_version_exists(self):
-        passive_version = 'passive'
-        stack_versions = [
-            {'identifier': 'test-' + passive_version, 'stack_name': 'test', 'version': passive_version, 'weight%': 0.0}
-        ]
-        versions_mock = MagicMock(return_value=bytes(json.dumps(stack_versions), encoding='utf-8'))
-        subprocess.check_output = versions_mock
-
-        result = self.__deployment_service.get_active_node_set('test')
-        self.assertIsNone(result, 'Active stack version returned although there is none')
-        versions_mock.assert_called_once_with([
-            'senza', 'traffic', '--region', 'eu-west-1', '--output', 'json', 'test'
-        ])
-
-    def test_should_return_passive_stack_version(self):
-        active_version = 'active'
-        passive_version = 'passive'
-        stack_versions = [
-            {
-                'identifier': 'test-' + passive_version,
-                'stack_name': 'test',
-                'version': passive_version,
-                'weight%': NO_TRAFFIC
-            },
-            {
-                'identifier': 'test-' + active_version,
-                'stack_name': 'test',
-                'version': active_version,
-                'weight%': ALL_TRAFFIC
-            }
-        ]
-        versions_mock = MagicMock(return_value=bytes(json.dumps(stack_versions), encoding='utf-8'))
-        subprocess.check_output = versions_mock
-
-        result = self.__deployment_service.get_passive_node_set('test')
-        self.assertEquals(passive_version, result, 'Result is not the passive stack version')
-        versions_mock.assert_called_once_with([
-            'senza', 'traffic', '--region', 'eu-west-1', '--output', 'json', 'test'
-        ])
-
-    def test_should_return_passive_stack_version_when_only_one_version_exists(self):
-        passive_version = 'passive'
-        stack_versions = [
-            {
-                'identifier': 'test-' + passive_version,
-                'stack_name': 'test',
-                'version': passive_version,
-                'weight%': NO_TRAFFIC
-            }
-        ]
-        versions_mock = MagicMock(return_value=bytes(json.dumps(stack_versions), encoding='utf-8'))
-        subprocess.check_output = versions_mock
-
-        result = self.__deployment_service.get_passive_node_set('test')
-        self.assertEquals(passive_version, result, 'Result is not the passive stack version')
-        versions_mock.assert_called_once_with([
-            'senza', 'traffic', '--region', 'eu-west-1', '--output', 'json', 'test'
-        ])
-
-    def test_should_return_none_if_no_passive_version_exists(self):
-        active_version = 'active'
-        stack_versions = [
-            {
-                'identifier': 'test-' + active_version,
-                'stack_name': 'test',
-                'version': active_version,
-                'weight%': ALL_TRAFFIC
-            }
-        ]
-        versions_mock = MagicMock(return_value=bytes(json.dumps(stack_versions), encoding='utf-8'))
-        subprocess.check_output = versions_mock
-
-        result = self.__deployment_service.get_passive_node_set('test')
-        self.assertIsNone(result, 'Passive stack version returned although there is none')
-        versions_mock.assert_called_once_with([
-            'senza', 'traffic', '--region', 'eu-west-1', '--output', 'json', 'test'
-        ])
-
-    def test_should_return_all_events_for_stack_version(self):
-        stack_name = 'test-stack'
-        stack_version_name = 'test-version'
-
-        events = [
-            {'stack_name': stack_name, 'version': stack_version_name, 'resource_type': 'test-event1'},
-            {'stack_name': stack_name, 'version': stack_version_name, 'resource_type': 'test-event2'}
-        ]
-        events_mock = MagicMock(return_value=bytes(json.dumps(events), encoding='utf-8'))
-        subprocess.check_output = events_mock
-
-        result = self.__deployment_service.get_events(stack_name, stack_version_name)
-        self.assertListEqual(events, result, 'Received unexpected list of events')
-        events_mock.assert_called_once_with([
-            'senza', 'events', '--region', 'eu-west-1', '--output', 'json', stack_name, stack_version_name
         ])
 
     def test_should_switch_traffic_between_versions(self):

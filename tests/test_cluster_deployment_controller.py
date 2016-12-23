@@ -4,7 +4,7 @@
 from mock import MagicMock
 from unittest import TestCase
 from solrcloud_cli.controllers.cluster_deployment_controller import ClusterDeploymentController
-from solrcloud_cli.services.senza_deployment_service import SenzaDeploymentService
+from solrcloud_cli.services.senza_deployment_service import DeploymentService
 from solrcloud_cli.services.solr_collections_service import SolrCollectionsService
 
 import json
@@ -29,9 +29,17 @@ HTTP_CODE_UNKNOWN_ERROR = 555
 
 REPLICATION_FACTOR = 3
 
-NEW_NODES = ['1.1.1.0', '1.1.1.1', '1.1.1.2']
-OLD_NODES = ['0.0.0.0', '0.0.0.1', '0.0.0.2']
-NOT_ENOUGH_NODES = ['2.2.2.0', '2.2.2.1']
+NOT_ENOUGH_NODES = [{'name': 'test', 'nodes': ['2.2.2.0', '2.2.2.1'], 'weight': '0'}]
+
+SINGLE_NODE_SET = [{'name': 'blue', 'nodes': ['1.1.1.0', '1.1.1.1', '1.1.1.2'], 'weight': '100'}]
+TWO_NODE_SETS_OLD_ACTIVE = [
+    {'name': 'green', 'nodes': ['1.1.1.0', '1.1.1.1', '1.1.1.2'], 'weight': '0'},
+    {'name': 'blue', 'nodes': ['0.0.0.0', '0.0.0.1', '0.0.0.2'], 'weight': '100'}
+]
+TWO_NODE_SETS_NEW_ACTIVE = [
+    {'name': 'green', 'nodes': ['1.1.1.0', '1.1.1.1', '1.1.1.2'], 'weight': '100'},
+    {'name': 'blue', 'nodes': ['0.0.0.0', '0.0.0.1', '0.0.0.2'], 'weight': '0'}
+]
 
 COLLECTION = 'test-collection01'
 SHARD = 'shard1'
@@ -328,7 +336,7 @@ class TestClusterDeploymentController(TestCase):
 
     def setUp(self):
         urllib.request.urlopen = MagicMock(side_effect=self.__side_effect_return_cluster_state_old_nodes)
-        deployment_service = SenzaDeploymentService(CONFIG)
+        deployment_service = MagicMock(spec=DeploymentService)
 
         self.__solr_collections_service = SolrCollectionsService(base_url=BASE_URL,
                                                                  oauth_token=OAUTH_TOKEN,
@@ -378,107 +386,72 @@ class TestClusterDeploymentController(TestCase):
             self.__controller.add_replica_to_cluster('test', 'test', 'test')
 
     def test_should_return_success_after_adding_multiple_nodes_to_cluster(self):
-        cluster_states = [
-            self.__side_effect_return_cluster_state_all_registered_nodes(None),
-            self.__side_effect_all_ok(''),
-            self.__side_effect_all_ok(''),
-            self.__side_effect_all_ok(''),
-            self.__side_effect_return_cluster_state_all_nodes(None)
-        ]
-        urlopen_mock = MagicMock(side_effect=cluster_states)
-        urllib.request.urlopen = urlopen_mock
-        collection = list(CLUSTER_OLD_NODES['cluster']['collections'].keys())[0]
-        shard = list(CLUSTER_OLD_NODES['cluster']['collections'][collection]['shards'].keys())[0]
-        urls = list()
-        for node_ip in NEW_NODES:
-            node = node_ip + ':8983_solr'
-            url = API_URL + '?action=ADDREPLICA'
-            url += '&collection=' + collection
-            url += '&shard=' + shard
-            url += '&node=' + node
-            urls.append(url)
+        deployment_service_mock = MagicMock()
+        deployment_service_mock.get_all_node_sets.return_value = TWO_NODE_SETS_OLD_ACTIVE
+        self.__controller.set_deployment_service(deployment_service_mock)
 
-        senza_mock = MagicMock()
-        senza_mock.get_nodes_of_node_set.return_value = NEW_NODES
-        self.__controller.set_deployment_service(senza_mock)
+        solr_collections_service_mock = MagicMock()
+        solr_collections_service_mock.add_replica_to_cluster.return_value = 0
+        cluster_states = [
+            CLUSTER_ALL_REGISTERED,
+            CLUSTER_ALL_NODES
+        ]
+        solr_collections_service_mock.get_cluster_state.side_effect = cluster_states
+        self.__controller.set_solr_collections_service(solr_collections_service_mock)
 
         self.__controller.add_new_nodes_to_cluster()
 
-        called_urls = list(map(lambda x: x[0][0].get_full_url(), urlopen_mock.call_args_list))
-        for url in urls:
-            self.assertIn(url, called_urls, 'URL was not called')
+        self.assertEquals(solr_collections_service_mock.get_cluster_state.call_count, 2)
+        self.assertEquals(solr_collections_service_mock.add_replica_to_cluster.call_count, 3)
 
     def test_should_return_error_because_of_not_enough_nodes_for_cluster_layout(self):
         urllib.request.urlopen = MagicMock(side_effect=self.__side_effect_return_cluster_state_old_nodes)
-        senza_mock = MagicMock()
-        senza_mock.get_nodes_of_node_set.return_value = NOT_ENOUGH_NODES
-        self.__controller.set_deployment_service(senza_mock)
+        deployment_service_mock = MagicMock()
+        deployment_service_mock.get_nodes_of_node_set.return_value = NOT_ENOUGH_NODES
+        self.__controller.set_deployment_service(deployment_service_mock)
         with self.assertRaises(Exception, msg='Not enough instances for current cluster layout: [2]<[3]'):
             self.__controller.add_new_nodes_to_cluster()
 
     def test_should_wait_until_all_nodes_are_active(self):
-        http_calls = [
-            self.__side_effect_return_cluster_state_all_registered_nodes(None),
-            self.__side_effect_all_ok(''),
-            self.__side_effect_all_ok(''),
-            self.__side_effect_all_ok(''),
-            self.__side_effect_return_cluster_state_all_nodes_one_not_active(None),
-            self.__side_effect_return_cluster_state_all_nodes(None)
-        ]
-        urlopen_mock = MagicMock(side_effect=http_calls)
-        urllib.request.urlopen = urlopen_mock
-        collection = list(CLUSTER_OLD_NODES['cluster']['collections'].keys())[0]
-        shard = list(CLUSTER_OLD_NODES['cluster']['collections'][collection]['shards'].keys())[0]
-        urls = list()
-        for node_ip in NEW_NODES:
-            node = node_ip + ':8983_solr'
-            url = API_URL + '?action=ADDREPLICA'
-            url += '&collection=' + collection
-            url += '&shard=' + shard
-            url += '&node=' + node
-            urls.append(url)
+        deployment_service_mock = MagicMock()
+        deployment_service_mock.get_all_node_sets.return_value = TWO_NODE_SETS_OLD_ACTIVE
+        self.__controller.set_deployment_service(deployment_service_mock)
 
-        senza_mock = MagicMock()
-        senza_mock.get_nodes_of_node_set.return_value = NEW_NODES
-        self.__controller.set_deployment_service(senza_mock)
+        solr_collections_service_mock = MagicMock()
+        solr_collections_service_mock.add_replica_to_cluster.return_value = 0
+        cluster_states = [
+            CLUSTER_ALL_REGISTERED,
+            CLUSTER_ALL_NODES_ONE_NOT_ACTIVE,
+            CLUSTER_ALL_NODES
+        ]
+        solr_collections_service_mock.get_cluster_state.side_effect = cluster_states
+        self.__controller.set_solr_collections_service(solr_collections_service_mock)
 
         self.__controller.add_new_nodes_to_cluster()
 
-        called_urls = list(map(lambda x: x[0][0].get_full_url(), urlopen_mock.call_args_list))
-        for url in urls:
-            self.assertIn(url, called_urls, 'URL was not called')
+        self.assertEquals(solr_collections_service_mock.get_cluster_state.call_count, 3)
+        self.assertEquals(solr_collections_service_mock.add_replica_to_cluster.call_count, 3)
 
     def test_should_raise_exception_on_timeout_when_adding_nodes(self):
-        http_calls = [
-            self.__side_effect_return_cluster_state_all_registered_nodes(None),
-            self.__side_effect_all_ok(''),
-            self.__side_effect_all_ok(''),
-            self.__side_effect_all_ok(''),
-        ]
-        urlopen_mock = MagicMock(side_effect=http_calls)
-        urllib.request.urlopen = urlopen_mock
-        collection = list(CLUSTER_OLD_NODES['cluster']['collections'].keys())[0]
-        shard = list(CLUSTER_OLD_NODES['cluster']['collections'][collection]['shards'].keys())[0]
-        urls = list()
-        for node_ip in NEW_NODES:
-            node = node_ip + ':8983_solr'
-            url = API_URL + '?action=ADDREPLICA'
-            url += '&collection=' + collection
-            url += '&shard=' + shard
-            url += '&node=' + node
-            urls.append(url)
+        deployment_service_mock = MagicMock()
+        deployment_service_mock.get_all_node_sets.return_value = TWO_NODE_SETS_OLD_ACTIVE
+        self.__controller.set_deployment_service(deployment_service_mock)
 
-        senza_mock = MagicMock()
-        senza_mock.get_nodes_of_node_set.return_value = NEW_NODES
-        self.__controller.set_deployment_service(senza_mock)
-        self.__controller.set_add_node_timeout(0)
+        solr_collections_service_mock = MagicMock()
+        solr_collections_service_mock.add_replica_to_cluster.return_value = 0
+        cluster_states = [
+            CLUSTER_ALL_REGISTERED,
+            CLUSTER_ALL_NODES_ONE_NOT_ACTIVE
+        ]
+        solr_collections_service_mock.get_cluster_state.side_effect = cluster_states
+        self.__controller.set_solr_collections_service(solr_collections_service_mock)
+        self.__controller.set_add_node_retry_wait(1)
 
         with self.assertRaisesRegex(Exception, 'Timeout while adding new nodes to cluster'):
             self.__controller.add_new_nodes_to_cluster()
 
-        called_urls = list(map(lambda x: x[0][0].get_full_url(), urlopen_mock.call_args_list))
-        for url in urls:
-            self.assertIn(url, called_urls, 'URL was not called')
+        self.assertEquals(solr_collections_service_mock.get_cluster_state.call_count, 2)
+        self.assertEquals(solr_collections_service_mock.add_replica_to_cluster.call_count, 3)
 
     def test_should_not_raise_exception_when_deleting_replica_from_cluster(self):
         urllib.request.urlopen = MagicMock(side_effect=self.__side_effect_all_ok)
@@ -505,33 +478,26 @@ class TestClusterDeploymentController(TestCase):
             self.__controller.delete_replica_from_cluster('test', 'test', 'test')
 
     def test_should_return_success_after_deleting_multiple_nodes_from_cluster(self):
-        urlopen_mock = MagicMock(side_effect=self.__side_effect_return_cluster_state_old_nodes)
-        urllib.request.urlopen = urlopen_mock
-        collection = list(CLUSTER_OLD_NODES['cluster']['collections'].keys())[0]
-        shard = list(CLUSTER_OLD_NODES['cluster']['collections'][collection]['shards'].keys())[0]
-        replicas = list(CLUSTER_OLD_NODES['cluster']['collections'][collection]['shards'][shard]['replicas'].keys())
-        urls = list()
-        for replica in replicas:
-            url = API_URL + '?action=DELETEREPLICA'
-            url += '&collection=' + collection
-            url += '&shard=' + shard
-            url += '&replica=' + replica
-            urls.append(url)
-        senza_mock = MagicMock()
-        senza_mock.get_nodes_of_node_set.return_value = OLD_NODES
-        self.__controller.set_deployment_service(senza_mock)
+        deployment_service_mock = MagicMock()
+        deployment_service_mock.get_all_node_sets.return_value = TWO_NODE_SETS_NEW_ACTIVE
+        self.__controller.set_deployment_service(deployment_service_mock)
+
+        solr_collections_service_mock = MagicMock()
+        solr_collections_service_mock.delete_replica_from_cluster.return_value = 0
+        solr_collections_service_mock.get_cluster_state.return_value = CLUSTER_OLD_NODES
+        self.__controller.set_solr_collections_service(solr_collections_service_mock)
 
         self.__controller.delete_old_nodes_from_cluster()
-        called_urls = list(map(lambda x: x[0][0].get_full_url(), urlopen_mock.call_args_list))
-        for url in urls:
-            self.assertIn(url, called_urls, 'URL was not called')
+
+        self.assertEquals(solr_collections_service_mock.get_cluster_state.call_count, 5)
+        self.assertEquals(solr_collections_service_mock.delete_replica_from_cluster.call_count, 3)
 
     def test_should_return_failure_after_deleting_multiple_nodes_from_shard_without_leader(self):
         urlopen_mock = MagicMock(side_effect=self.__side_effect_return_cluster_state_no_leader)
         urllib.request.urlopen = urlopen_mock
-        senza_mock = MagicMock()
-        senza_mock.get_nodes_of_node_set.return_value = OLD_NODES
-        self.__controller.set_deployment_service(senza_mock)
+        deployment_service_mock = MagicMock()
+        deployment_service_mock.get_all_node_sets.return_value = SINGLE_NODE_SET
+        self.__controller.set_deployment_service(deployment_service_mock)
         with self.assertRaisesRegex(Exception, 'Shard \[shard[0-9]\] of collection \[[a-z0-9\-]+\] has no active '
                                                'leader'):
             self.__controller.delete_old_nodes_from_cluster()
@@ -539,9 +505,9 @@ class TestClusterDeploymentController(TestCase):
     def test_should_return_failure_after_deleting_multiple_nodes_with_only_one_active_replica(self):
         urlopen_mock = MagicMock(side_effect=self.__side_effect_return_cluster_state_only_one_active_replica)
         urllib.request.urlopen = urlopen_mock
-        senza_mock = MagicMock()
-        senza_mock.get_nodes_of_node_set.return_value = OLD_NODES
-        self.__controller.set_deployment_service(senza_mock)
+        deployment_service_mock = MagicMock()
+        deployment_service_mock.get_all_node_sets.return_value = SINGLE_NODE_SET
+        self.__controller.set_deployment_service(deployment_service_mock)
         with self.assertRaisesRegex(Exception, 'Shard \[shard[0-9]\] of collection \[[a-z0-9\-]+\] has not enough '
                                                'active nodes: \[[1]\]'):
             self.__controller.delete_old_nodes_from_cluster()
@@ -561,156 +527,172 @@ class TestClusterDeploymentController(TestCase):
                           'Shard should have no replicas')
 
     def test_should_return_green_when_only_blue_stack_is_running_and_passive_stack_version_is_requested(self):
+        deployment_service_mock = MagicMock(spec=DeploymentService)
+        deployment_service_mock.create_node_set.return_value = 0
+        node_sets = [
+            SINGLE_NODE_SET
+        ]
+        deployment_service_mock.get_all_node_sets.side_effect = node_sets
 
-        active_version = 'blue'
-        senza_mock = SenzaDeploymentService(CONFIG)
-        senza_passive_versions_mock = senza_mock.get_passive_node_set = MagicMock(return_value=None)
-        senza_active_versions_mock = senza_mock.get_active_node_set = MagicMock(return_value=active_version)
+        solr_collections_service_mock = MagicMock(spec=SolrCollectionsService)
+        solr_collections_service_mock.get_cluster_state.return_value = CLUSTER_ALL_REGISTERED
 
         controller = ClusterDeploymentController(stack_name=STACK_NAME,
                                                  image_version=IMAGE_VERSION,
-                                                 solr_collections_service=self.__solr_collections_service,
-                                                 deployment_service=senza_mock)
+                                                 solr_collections_service=solr_collections_service_mock,
+                                                 deployment_service=deployment_service_mock)
 
         self.assertEquals('green', controller.get_passive_stack_version(), 'Wrong stack version')
-
-        senza_passive_versions_mock.assert_called_once_with(STACK_NAME)
-        senza_active_versions_mock.assert_called_once_with(STACK_NAME)
+        deployment_service_mock.get_all_node_sets.assert_called_once()
 
     def test_should_not_raise_any_exception_when_creating_a_new_cluster(self):
-        instances = [
-            NEW_NODES
+        deployment_service_mock = MagicMock(spec=DeploymentService)
+        deployment_service_mock.create_node_set.return_value = 0
+        node_sets = [
+            SINGLE_NODE_SET,
+            TWO_NODE_SETS_OLD_ACTIVE
         ]
-        senza_mock = SenzaDeploymentService(CONFIG)
-        senza_create_mock = senza_mock.create_node_set = MagicMock()
-        senza_passive_versions_mock = senza_mock.get_passive_node_set = MagicMock(return_value='test-version')
-        senza_instances_mock = senza_mock.get_nodes_of_node_set = MagicMock(side_effect=instances)
+        deployment_service_mock.get_all_node_sets.side_effect = node_sets
 
-        http_calls = self.__side_effect_return_cluster_state_all_registered_nodes
-
-        urlopen_mock = MagicMock(side_effect=http_calls)
-        urllib.request.urlopen = urlopen_mock
+        solr_collections_service_mock = MagicMock(spec=SolrCollectionsService)
+        solr_collections_service_mock.get_cluster_state.return_value = CLUSTER_ALL_REGISTERED
 
         controller = ClusterDeploymentController(stack_name=STACK_NAME,
                                                  image_version=IMAGE_VERSION,
-                                                 solr_collections_service=self.__solr_collections_service,
-                                                 deployment_service=senza_mock)
+                                                 solr_collections_service=solr_collections_service_mock,
+                                                 deployment_service=deployment_service_mock)
         controller.create_cluster()
 
-        senza_passive_versions_mock.assert_called_with(STACK_NAME)
-        self.assertEquals(2, len(senza_passive_versions_mock.call_args_list))
-        senza_create_mock.assert_called_once_with(STACK_NAME, 'test-version', IMAGE_VERSION)
-        senza_instances_mock.assert_called_once_with(STACK_NAME, 'test-version')
+        deployment_service_mock.create_node_set.assert_called_once_with(STACK_NAME, 'green', IMAGE_VERSION)
+        self.assertEquals(deployment_service_mock.get_all_node_sets.call_count, 2)
+        self.assertEquals(solr_collections_service_mock.get_cluster_state.call_count, 2)
 
     def test_should_wait_until_all_nodes_are_registered_when_creating_a_new_cluster(self):
-        instances = [
-            NEW_NODES
+        deployment_service_mock = MagicMock(spec=DeploymentService)
+        deployment_service_mock.create_node_set.return_value = 0
+        node_sets = [
+            SINGLE_NODE_SET,
+            TWO_NODE_SETS_OLD_ACTIVE
         ]
-        senza_mock = SenzaDeploymentService(CONFIG)
-        senza_create_mock = senza_mock.create_node_set = MagicMock()
-        senza_passive_versions_mock = senza_mock.get_passive_node_set = MagicMock(return_value='test-version')
-        senza_instances_mock = senza_mock.get_nodes_of_node_set = MagicMock(side_effect=instances)
+        deployment_service_mock.get_all_node_sets.side_effect = node_sets
 
-        http_calls = [
-            self.__side_effect_return_cluster_state_old_nodes(None),
-            self.__side_effect_return_cluster_state_old_nodes(None),
-            self.__side_effect_return_cluster_state_all_registered_nodes(None)
+        solr_collections_service_mock = MagicMock(spec=SolrCollectionsService)
+        cluster_states = [
+            CLUSTER_OLD_NODES,
+            CLUSTER_OLD_NODES,
+            CLUSTER_ALL_REGISTERED
         ]
-
-        urlopen_mock = MagicMock(side_effect=http_calls)
-        urllib.request.urlopen = urlopen_mock
+        solr_collections_service_mock.get_cluster_state.side_effect = cluster_states
 
         controller = ClusterDeploymentController(stack_name=STACK_NAME,
                                                  image_version=IMAGE_VERSION,
-                                                 solr_collections_service=self.__solr_collections_service,
-                                                 deployment_service=senza_mock)
+                                                 solr_collections_service=solr_collections_service_mock,
+                                                 deployment_service=deployment_service_mock)
         controller.set_create_cluster_retry_wait(0)
         controller.set_create_cluster_timeout(1)
         controller.create_cluster()
 
-        senza_passive_versions_mock.assert_called_with(STACK_NAME)
-        self.assertEquals(2, len(senza_passive_versions_mock.call_args_list))
-        senza_create_mock.assert_called_once_with(STACK_NAME, 'test-version', IMAGE_VERSION)
-        senza_instances_mock.assert_called_once_with(STACK_NAME, 'test-version')
+        deployment_service_mock.create_node_set.assert_called_once_with(STACK_NAME, 'green', IMAGE_VERSION)
+        self.assertEquals(deployment_service_mock.get_all_node_sets.call_count, 2)
+        self.assertEquals(solr_collections_service_mock.get_cluster_state.call_count, 3)
 
     def test_should_raise_exception_on_timeout_when_creating_a_new_cluster(self):
-        instances = [
-            NEW_NODES
+        deployment_service_mock = MagicMock(spec=DeploymentService)
+        deployment_service_mock.create_node_set.return_value = 0
+        node_sets = [
+            SINGLE_NODE_SET,
+            TWO_NODE_SETS_OLD_ACTIVE
         ]
-        senza_mock = SenzaDeploymentService(CONFIG)
-        senza_create_mock = senza_mock.create_node_set = MagicMock()
-        senza_passive_versions_mock = senza_mock.get_passive_node_set = MagicMock(return_value='test-version')
-        senza_instances_mock = senza_mock.get_nodes_of_node_set = MagicMock(side_effect=instances)
+        deployment_service_mock.get_all_node_sets.side_effect = node_sets
 
-        http_calls = [
-            self.__side_effect_return_cluster_state_old_nodes(None),
-            self.__side_effect_return_cluster_state_old_nodes(None),
-        ]
-
-        urlopen_mock = MagicMock(side_effect=http_calls)
-        urllib.request.urlopen = urlopen_mock
+        solr_collections_service_mock = MagicMock(spec=SolrCollectionsService)
+        solr_collections_service_mock.get_cluster_state.return_value = CLUSTER_OLD_NODES
 
         controller = ClusterDeploymentController(stack_name=STACK_NAME,
                                                  image_version=IMAGE_VERSION,
-                                                 solr_collections_service=self.__solr_collections_service,
-                                                 deployment_service=senza_mock)
-        controller.set_create_cluster_retry_wait(0)
-        controller.set_create_cluster_timeout(0)
+                                                 solr_collections_service=solr_collections_service_mock,
+                                                 deployment_service=deployment_service_mock)
+        controller.set_create_cluster_retry_wait(1)
+        controller.set_create_cluster_timeout(1)
         with self.assertRaisesRegex(Exception, 'Timeout while creating new cluster, not all new nodes have been '
                                                'registered in time'):
             controller.create_cluster()
 
-        senza_passive_versions_mock.assert_called_with(STACK_NAME)
-        self.assertEquals(2, len(senza_passive_versions_mock.call_args_list))
-        senza_create_mock.assert_called_once_with(STACK_NAME, 'test-version', IMAGE_VERSION)
-        senza_instances_mock.assert_called_once_with(STACK_NAME, 'test-version')
+        deployment_service_mock.create_node_set.assert_called_once_with(STACK_NAME, 'green', IMAGE_VERSION)
+        self.assertEquals(deployment_service_mock.get_all_node_sets.call_count, 2)
+        self.assertEquals(solr_collections_service_mock.get_cluster_state.call_count, 2)
 
     def test_should_not_raise_any_exception_when_deleting_a_cluster(self):
-        senza_mock = SenzaDeploymentService(CONFIG)
-        senza_delete_mock = senza_mock.delete_node_set = MagicMock()
-        senza_passive_versions_mock = senza_mock.get_passive_node_set = MagicMock(return_value='test-version')
+        deployment_service_mock = MagicMock(spec=DeploymentService)
+        deployment_service_mock.delete_node_set.return_value = 0
+        deployment_service_mock.get_all_node_sets.return_value = TWO_NODE_SETS_NEW_ACTIVE
+
+        solr_collections_service_mock = MagicMock(spec=SolrCollectionsService)
+        solr_collections_service_mock.get_cluster_state.return_value = CLUSTER_ALL_NODES
 
         controller = ClusterDeploymentController(stack_name=STACK_NAME,
                                                  image_version=IMAGE_VERSION,
-                                                 solr_collections_service=self.__solr_collections_service,
-                                                 deployment_service=senza_mock)
+                                                 solr_collections_service=solr_collections_service_mock,
+                                                 deployment_service=deployment_service_mock)
         controller.delete_cluster()
 
-        senza_passive_versions_mock.assert_called_once_with(STACK_NAME)
-        senza_delete_mock.assert_called_once_with(STACK_NAME, 'test-version')
+        deployment_service_mock.delete_node_set.assert_called_once_with(STACK_NAME, 'blue')
+        deployment_service_mock.get_all_node_sets.assert_called_once()
+        solr_collections_service_mock.get_cluster_state.assert_called_once()
 
     def test_should_not_raise_any_exception_when_switching_to_another_cluster_version(self):
-        senza_mock = SenzaDeploymentService(CONFIG)
-        senza_switch_mock = senza_mock.switch_traffic = MagicMock()
-        senza_passive_versions_mock = senza_mock.get_passive_node_set = MagicMock(return_value='test-version')
+        deployment_service_mock = MagicMock(spec=DeploymentService)
+        deployment_service_mock.switch_traffic.return_value = 0
+        deployment_service_mock.get_all_node_sets.return_value = TWO_NODE_SETS_OLD_ACTIVE
+
+        solr_collections_service_mock = MagicMock(spec=SolrCollectionsService)
+        solr_collections_service_mock.get_cluster_state.return_value = CLUSTER_ALL_NODES
 
         controller = ClusterDeploymentController(stack_name=STACK_NAME,
                                                  image_version=IMAGE_VERSION,
-                                                 solr_collections_service=self.__solr_collections_service,
-                                                 deployment_service=senza_mock)
+                                                 solr_collections_service=solr_collections_service_mock,
+                                                 deployment_service=deployment_service_mock)
         controller.switch_traffic()
 
-        senza_passive_versions_mock.assert_called_once_with(STACK_NAME)
-        senza_switch_mock.assert_called_once_with(STACK_NAME, 'test-version', 100)
+        deployment_service_mock.switch_traffic.assert_called_once_with(STACK_NAME, 'green', 100)
+        deployment_service_mock.get_all_node_sets.assert_called_once()
+        solr_collections_service_mock.get_cluster_state.assert_called_once()
 
     def test_should_not_raise_exceptions_when_executing_all_deployment_steps(self):
-        test_version = 'test-version'
-        instances = [
-            OLD_NODES,
-            NEW_NODES,
-            OLD_NODES
+        deployment_service_mock = MagicMock(spec=DeploymentService)
+        deployment_service_mock.create_node_set.return_value = 0
+        deployment_service_mock.switch_traffic.return_value = 0
+        deployment_service_mock.delete_node_set.return_value = 0
+        node_sets = [
+            SINGLE_NODE_SET, # create node set
+            TWO_NODE_SETS_OLD_ACTIVE,  # create node set
+            TWO_NODE_SETS_OLD_ACTIVE,  # add new nodes
+            TWO_NODE_SETS_OLD_ACTIVE,  # add new nodes
+            TWO_NODE_SETS_OLD_ACTIVE,  # switch traffic
+            TWO_NODE_SETS_NEW_ACTIVE,  # delete old nodes
+            TWO_NODE_SETS_NEW_ACTIVE,  # delete old nodes
+            TWO_NODE_SETS_NEW_ACTIVE,  # delete node set
         ]
-        senza_mock = SenzaDeploymentService(CONFIG)
-        senza_create_mock = senza_mock.create_node_set = MagicMock()
-        senza_passive_versions_mock = senza_mock.get_passive_node_set = MagicMock(return_value=test_version)
-        senza_switch_mock = senza_mock.switch_traffic = MagicMock(return_value=True)
-        senza_delete_mock = senza_mock.delete_node_set = MagicMock()
-        senza_instances_mock = senza_mock.get_nodes_of_node_set = MagicMock(side_effect=instances)
+        deployment_service_mock.get_all_node_sets.side_effect = node_sets
+
+        solr_collections_service_mock = MagicMock(spec=SolrCollectionsService)
+        cluster_states = [
+            CLUSTER_ALL_REGISTERED,  # create node set
+            CLUSTER_ALL_NODES,  # create node set
+            CLUSTER_ALL_NODES,  # add new nodes
+            CLUSTER_ALL_NODES,  # add new nodes
+            CLUSTER_ALL_NODES,  # delete old nodes
+            CLUSTER_ALL_NODES,  # delete old nodes
+            CLUSTER_ALL_NODES,  # delete old nodes
+            CLUSTER_ALL_NODES,  # delete old nodes
+            CLUSTER_ALL_NODES,  # delete old nodes
+        ]
+        solr_collections_service_mock.get_cluster_state.side_effect = cluster_states
 
         controller = ClusterDeploymentController(stack_name=STACK_NAME,
                                                  image_version=IMAGE_VERSION,
-                                                 solr_collections_service=self.__solr_collections_service,
-                                                 deployment_service=senza_mock)
+                                                 solr_collections_service=solr_collections_service_mock,
+                                                 deployment_service=deployment_service_mock)
 
         controller.set_leader_check_retry_count(1)
         controller.set_leader_check_retry_wait(0)
@@ -718,33 +700,13 @@ class TestClusterDeploymentController(TestCase):
         controller.set_add_node_retry_wait(0)
         controller.set_add_node_timeout(1)
 
-        http_calls = [
-            self.__side_effect_return_cluster_state_all_registered_nodes(None),  # create_cluster
-            self.__side_effect_return_cluster_state_all_registered_nodes(None),  # add_new_nodes_to_cluster
-            self.__side_effect_all_ok(''),  # add_new_nodes_to_cluster
-            self.__side_effect_all_ok(''),  # add_new_nodes_to_cluster
-            self.__side_effect_all_ok(''),  # add_new_nodes_to_cluster
-            self.__side_effect_return_cluster_state_all_nodes(None),  # add_new_nodes_to_cluster
-            self.__side_effect_return_cluster_state_all_nodes(None),  # delete_old_nodes_from_cluster
-            self.__side_effect_return_cluster_state_all_nodes(None),  # delete_old_nodes_from_cluster
-            self.__side_effect_all_ok(''),  # delete_old_nodes_from_cluster
-            self.__side_effect_return_cluster_state_all_nodes(None),  # delete_old_nodes_from_cluster
-            self.__side_effect_all_ok(''),  # delete_old_nodes_from_cluster
-            self.__side_effect_return_cluster_state_all_nodes(None),  # delete_old_nodes_from_cluster
-            self.__side_effect_all_ok(''),  # delete_old_nodes_from_cluster
-            self.__side_effect_return_cluster_state_all_nodes(None),  # delete_old_nodes_from_cluster
-        ]
-
-        urlopen_mock = MagicMock(side_effect=http_calls)
-        urllib.request.urlopen = urlopen_mock
-
         controller.deploy_new_version()
 
-        senza_passive_versions_mock.assert_called_with(STACK_NAME)
-        senza_create_mock.assert_called_once_with(STACK_NAME, test_version, IMAGE_VERSION)
-        senza_switch_mock.assert_called_once_with(STACK_NAME, test_version, 100)
-        senza_delete_mock.assert_called_once_with(STACK_NAME, test_version)
-        senza_instances_mock.assert_called_with(STACK_NAME, test_version)
+        deployment_service_mock.create_node_set.assert_called_once_with(STACK_NAME, 'green', '0.0.0')
+        deployment_service_mock.switch_traffic.assert_called_once_with(STACK_NAME, 'green', 100)
+        deployment_service_mock.delete_node_set.assert_called_once_with(STACK_NAME, 'blue')
+        self.assertEquals(deployment_service_mock.get_all_node_sets.call_count, 8)
+        self.assertEquals(solr_collections_service_mock.get_cluster_state.call_count, 9)
 
     def test_should_not_raise_exception_if_shard_is_healthy(self):
         self.__controller.verify_shard_health(COLLECTION, SHARD)

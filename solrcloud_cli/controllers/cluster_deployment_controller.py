@@ -87,18 +87,26 @@ class ClusterDeploymentController(ClusterController):
         self._solr_collections_service.set_create_cluster_timeout(timeout)
 
     def get_passive_stack_version(self):
-        passive_stack_version = self._deployment_service.get_passive_node_set(self._stack_name)
-        if not passive_stack_version:
-            current_version = self._deployment_service.get_active_node_set(self._stack_name)
-            passive_stack_version = list(filter(lambda x: x != current_version, BLUE_GREEN_DEPLOYMENT_VERSIONS))[0]
-        return passive_stack_version
+        all_node_sets = self._deployment_service.get_all_node_sets(self._stack_name)
+        passive_versions = list(filter(lambda x: int(x['weight']) == 0, all_node_sets))
+        if passive_versions:
+            passive_version = passive_versions[0]['name']
+        else:
+            active_versions = list(filter(lambda x: int(x['weight']) == 100, all_node_sets))
+            if active_versions:
+                current_version = active_versions[0]['name']
+            else:
+                raise Exception('Could not find any deployed stack version for [{}].', self._stack_name)
+            passive_version = list(filter(lambda x: x != current_version, BLUE_GREEN_DEPLOYMENT_VERSIONS))[0]
+        return passive_version
 
     def create_cluster(self):
-        self._deployment_service.create_node_set(self._stack_name, self.get_passive_stack_version(),
+        stack_version = self.get_passive_stack_version()
+        self._deployment_service.create_node_set(self._stack_name, stack_version,
                                                  self.__image_version)
 
         # Wait for all nodes being registered in cluster
-        nodes = self.get_cluster_nodes(self._stack_name, self.get_passive_stack_version())
+        nodes = self.get_cluster_nodes(self._stack_name, stack_version)
         timer = 0
         all_nodes_added = False
         while not all_nodes_added and timer < self.__create_cluster_timeout:
@@ -193,7 +201,12 @@ class ClusterDeploymentController(ClusterController):
         return self._solr_collections_service.delete_replica_from_cluster(collection, shard, replica)
 
     def get_cluster_nodes(self, stack_name, stack_version):
-        return sorted(self._deployment_service.get_nodes_of_node_set(stack_name, stack_version))
+        matching_node_sets = list(filter(lambda x: x['name'] == stack_version,
+                                  self._deployment_service.get_all_node_sets(stack_name)))
+        if matching_node_sets:
+            return sorted(matching_node_sets[0].get('nodes'))
+        else:
+            return []
 
     def switch_traffic(self):
         self._deployment_service.switch_traffic(self._stack_name, self.get_passive_stack_version(), 100)
