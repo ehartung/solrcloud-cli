@@ -58,12 +58,6 @@ class SolrCollectionsService:
     def set_create_cluster_timeout(self, timeout: int):
         self.__create_cluster_timeout = timeout
 
-    def set_stack_creation_retry_wait(self, retry_wait: int):
-        self.__stack_creation_retry_wait = retry_wait
-
-    def set_stack_creation_retry_timeout(self, retry_timeout: int):
-        self.__stack_creation_retry_timeout = retry_timeout
-
     def get_cluster_state(self):
         url = self._api_url + '?action=CLUSTERSTATUS&wt=json'
         try:
