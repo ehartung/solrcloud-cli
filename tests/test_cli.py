@@ -1,4 +1,6 @@
 import io
+import os.path
+import yaml
 
 from mock import patch, Mock
 from unittest import TestCase
@@ -44,6 +46,19 @@ class TestCLI(TestCase):
         output = out.getvalue()
 
         self.assertIn('Configuration file does not exist: unknown.file', output)
+        self.assertIn('usage: ', output)
+
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_should_return_error_message_and_usage_page_if_deployment_method_is_unknown(self, out):
+        true_mock = Mock(return_value=True)
+        os.path.exists = true_mock
+        yaml_mock = Mock(return_value={})
+        yaml.load = yaml_mock
+
+        solrcloud_cli(['-f', '/dev/null', '-d', 'unknown.deployment.method', 'unknown'])
+        output = out.getvalue()
+
+        self.assertIn('Unknown deployment mode: [unknown.deployment.method]. Supported modes are stups, k8s.', output)
         self.assertIn('usage: ', output)
 
     @patch('solrcloud_cli.controllers.cluster_bootstrap_controller.ClusterBootstrapController.__init__',

@@ -54,6 +54,13 @@ class TestKubectlDeploymentService(TestCase):
             '--selector="application=test-application, release=2"'
         ])
 
+    def test_should_fail_if_kubectl_get__command_does_not_return_bytes_output(self):
+        kubectl_mock = MagicMock(return_value=None)
+        subprocess.check_output = kubectl_mock
+
+        with self.assertRaises(AttributeError):
+            self.__deployment_service.get_all_node_sets('test')
+
     def test_should_return_success_after_creating_new_node_set(self):
         get_deployments_output = {
             'items': [{'metadata': {'labels': {'release': '1'}}}, {'metadata': {'labels': {'release': '2'}}}]
@@ -104,4 +111,23 @@ class TestKubectlDeploymentService(TestCase):
         pass
 
     def test_should_return_success_after_deleting_node_set(self):
-        pass
+        delete_output = {}
+        kubectl_mock = MagicMock(return_value=bytes(json.dumps(delete_output), encoding='utf-8'))
+        subprocess.check_output = kubectl_mock
+
+        result = self.__deployment_service.delete_node_set('test-application', '1')
+
+        self.assertEquals(delete_output, result, 'Unexpected output')
+
+        kubectl_mock.assert_called_once_with(['kubectl', 'delete', '--namespace=diamond', '--output=json', 'deployment',
+                                              'test-application-1'])
+
+    def test_should_not_do_anything_on_switching_traffic(self):
+        kubectl_mock = MagicMock()
+        subprocess.check_output = kubectl_mock
+        subprocess.call = kubectl_mock
+
+        result = self.__deployment_service.switch_traffic('test-application', '1', 0)
+
+        self.assertEquals(None, result, 'Unexpected output')
+        kubectl_mock.assert_not_called()

@@ -55,7 +55,7 @@ def solrcloud_cli(cli_args):
     elif args.deployment_mode == 'k8s':
         deployment_service = KubectlDeploymentService()
     else:
-        print('Unknown deployment mode: [{}]. Supported modes are stups, k8s.', args.command)
+        print('Unknown deployment mode: [{}]. Supported modes are stups, k8s.'.format(args.deployment_mode))
         parser.print_usage()
         return
 
