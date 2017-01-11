@@ -9,7 +9,14 @@ KUBECTL = 'kubectl'
 class KubectlDeploymentService(DeploymentService):
 
     def create_node_set(self, application: str, node_set: str, image_version: str):
-        return self.__execute_kubectl('create', '-f', application + '-deployment.yaml', '--record')
+        self.__execute_kubectl('create', '-f', application + '-deployment.yaml', '--record')
+        releases = list(map(lambda x: x['metadata']['labels']['release'],
+                            self.__execute_kubectl('get', 'deployments', '--selector="application=' + application + '"')
+                            .get('items')))
+        if node_set in releases:
+            return
+        else:
+            raise Exception('Failed to create new node set [{}] for application [{}]'.format(node_set, application))
 
     def delete_node_set(self, application: str, node_set: str):
         return self.__execute_kubectl('delete', 'deployment', application + '-' + node_set)
@@ -40,8 +47,8 @@ class KubectlDeploymentService(DeploymentService):
     def __execute_kubectl(command: str, *args):
         kubectl_command = [KUBECTL, command, '--namespace=diamond']
 
-        if command in ['get', 'delete']:
-            kubectl_command += ['--output', 'json']
+        if command in ['delete', 'get']:
+            kubectl_command += ['--output=json']
             kubectl_command += list(args)
             output = subprocess.check_output(kubectl_command)
             if output and isinstance(output, bytes):
